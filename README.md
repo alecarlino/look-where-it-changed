@@ -23,11 +23,10 @@ One GitHub repo (`origin`) holds everything tracked. Only `report/` is pushed to
 Overleaf (`overleaf` remote) via `git subtree`.
 
 ```bash
-git add -A && git commit -m "..."
-./sync.sh
+./sync.sh "what changed"
 ```
 
-`sync.sh` pulls GitHub, pulls Overleaf into `report/`, pushes `report/` to
+`sync.sh` commits any local changes (asks for a message if none is given), pulls GitHub, pulls Overleaf into `report/`, pushes `report/` to
 Overleaf, then pushes to GitHub. Run it before editing `.tex` files locally.
 
 ## Zotero
