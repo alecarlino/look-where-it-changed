@@ -1,0 +1,226 @@
+@online{ackermannCLSplatsContinualLearning2025,
+  title = {{{CL-Splats}}: {{Continual Learning}} of {{Gaussian Splatting}} with {{Local Optimization}}},
+  shorttitle = {{{CL-Splats}}},
+  author = {Ackermann, Jan and Kulhanek, Jonas and Cai, Shengqu and Xu, Haofei and Pollefeys, Marc and Wetzstein, Gordon and Guibas, Leonidas and Peng, Songyou},
+  date = {2025},
+  doi = {10.48550/ARXIV.2506.21117},
+  url = {https://arxiv.org/abs/2506.21117},
+  urldate = {2026-09-15},
+  abstract = {In dynamic 3D environments, accurately updating scene representations over time is crucial for applications in robotics, mixed reality, and embodied AI. As scenes evolve, efficient methods to incorporate changes are needed to maintain upto-date, high-quality reconstructions without the computational overhead of re-optimizing the entire scene. This paper introduces CL-Splats, which incrementally updates Gaussian splatting-based 3D representations from sparse scene captures. CL-Splats integrates a robust change-detection module that segments updated and static components within the scene, enabling focused, local optimization that avoids unnecessary re-computation. Moreover, CL-Splats supports storing and recovering previous scene states, facilitating temporal segmentation and new scene-analysis applications. Our extensive experiments demonstrate that CL-Splats achieves efficient updates with improved reconstruction quality over the state-of-the-art. This establishes a robust foundation for future real-time adaptation in 3D scene reconstruction tasks. We will release our source code and the synthetic and real-world datasets we created at https://cl-splats.github.io/.},
+  langid = {english},
+  pubstate = {prepublished},
+  version = {2},
+  keywords = {Computer Vision and Pattern Recognition (cs.CV),FOS: Computer and information sciences},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Ackermann et al. - 2025 - CL-Splats Continual Learning of Gaussian Splatting with Local Optimization.pdf}
+}
+
+@online{anCrossTemporal3DGaussian2025,
+  title = {Cross-{{Temporal 3D Gaussian Splatting}} for {{Sparse-View Guided Scene Update}}},
+  author = {An, Zeyuan and Xiao, Yanghang and Leng, Zhiying and Li, Frederick W. B. and Liang, Xiaohui},
+  date = {2025-11-29},
+  eprint = {2512.00534},
+  eprinttype = {arXiv},
+  eprintclass = {cs.CV},
+  doi = {10.48550/arXiv.2512.00534},
+  url = {http://arxiv.org/abs/2512.00534},
+  urldate = {2026-09-19},
+  abstract = {Maintaining consistent 3D scene representations over time is a significant challenge in computer vision. Updating 3D scenes from sparse-view observations is crucial for various real-world applications, including urban planning, disaster assessment, and historical site preservation, where dense scans are often unavailable or impractical. In this paper, we propose Cross-Temporal 3D Gaussian Splatting (CrossTemporal 3DGS), a novel framework for efficiently reconstructing and updating 3D scenes across different time periods, using sparse images and previously captured scene priors. Our approach comprises three stages: 1) Cross-temporal camera alignment for estimating and aligning camera poses across different timestamps; 2) Interference-based confidence initialization to identify unchanged regions between timestamps, thereby guiding updates; and 3) Progressive crosstemporal optimization, which iteratively integrates historical prior information into the 3D scene to enhance reconstruction quality. Our method supports non-continuous capture, enabling not only updates using new sparse views to refine existing scenes, but also recovering past scenes from limited data with the help of current captures. Furthermore, we demonstrate the potential of this approach to achieve temporal changes using only sparse images, which can later be reconstructed into detailed 3D representations as needed. Experimental results show significant improvements over baseline methods in reconstruction quality and data efficiency, making this approach a promising solution for scene versioning, cross-temporal digital twins, and long-term spatial documentation.},
+  langid = {english},
+  pubstate = {prepublished},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/An et al. - 2025 - Cross-Temporal 3D Gaussian Splatting for Sparse-View Guided Scene Update.pdf}
+}
+
+@article{choZeroShotSceneChange,
+  title = {Zero-{{Shot Scene Change Detection}}},
+  author = {Cho, Kyusik and Kim, Dong Yeop and Kim, Euntai},
+  abstract = {We present a novel, training-free approach to scene change detection. Our method leverages tracking models, which inherently perform change detection between consecutive frames of video by identifying common objects and detecting new or missing objects. Specifically, our method takes advantage of the change detection effect of the tracking model by inputting reference and query images instead of consecutive frames. Furthermore, we focus on the content gap and style gap between two input images in change detection, and address both issues by proposing adaptive content threshold and style bridging layers, respectively. Finally, we extend our approach to video, leveraging rich temporal information to enhance the performance of scene change detection. We compare our approach and baseline through various experiments. While existing train-based baseline tend to specialize only in the trained domain, our method shows consistent performance across various domains, proving the competitiveness of our approach.},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Cho et al. - Zero-Shot Scene Change Detection.pdf}
+}
+
+@online{galappaththigeChangesRealTime2025,
+  title = {Changes in {{Real Time}}: {{Online Scene Change Detection}} with {{Multi-View Fusion}}},
+  shorttitle = {Changes in {{Real Time}}},
+  author = {Galappaththige, Chamuditha Jayanga and Lai, Jason and Windrim, Lloyd and Dansereau, Donald and Sünderhauf, Niko and Miller, Dimity},
+  date = {2025},
+  doi = {10.48550/ARXIV.2511.12370},
+  url = {https://arxiv.org/abs/2511.12370},
+  urldate = {2026-09-14},
+  abstract = {Online Scene Change Detection (SCD) is an extremely challenging problem that requires an agent to detectrelevant changes on the fly while observing the scene from unconstrained viewpoints. Existing online SCD methods are significantly less accurate than offline approaches. We present the first online SCD approach that is pose-agnostic, labelfree, and ensures multi-view consistency, while operating at over 10 FPS and achieving new state-of-the-art performance, surpassing even the best offline approaches. Our method introduces a new self-supervised fusion loss to infer scene changes from multiple cues and observations, PnPbased fast pose estimation against the reference scene, and a fast change-guided update strategy for the 3D Gaussian Splatting scene representation. Extensive experiments on complex real-world datasets demonstrate that our approach outperforms both online and offline baselines. Code is available athttps://chumsy0725.github.io/O-SCD/.},
+  langid = {english},
+  pubstate = {prepublished},
+  version = {3},
+  keywords = {Computer Vision and Pattern Recognition (cs.CV),FOS: Computer and information sciences},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Galappaththige et al. - 2025 - Changes in Real Time Online Scene Change Detection with Multi-View Fusion.pdf}
+}
+
+@incollection{jiangFisherRFActiveView2025,
+  title = {{{FisherRF}}: {{Active View Selection}} and {{Mapping}} with {{Radiance Fields Using Fisher Information}}},
+  shorttitle = {{{FisherRF}}},
+  booktitle = {Computer {{Vision}} – {{ECCV}} 2024},
+  author = {Jiang, Wen and Lei, Boshu and Daniilidis, Kostas},
+  editor = {Leonardis, Aleš and Ricci, Elisa and Roth, Stefan and Russakovsky, Olga and Sattler, Torsten and Varol, Gül},
+  date = {2025},
+  volume = {15071},
+  pages = {422--440},
+  publisher = {Springer Nature Switzerland},
+  location = {Cham},
+  doi = {10.1007/978-3-031-72624-8_24},
+  url = {https://link.springer.com/10.1007/978-3-031-72624-8_24},
+  urldate = {2026-09-14},
+  abstract = {This study addresses the challenging problem of active view selection and uncertainty quantification within the domain of Radiance Fields. Neural Radiance Fields (NeRF) have greatly advanced image rendering and reconstruction, but the cost of acquiring images poses the need to select the most informative viewpoints efficiently. Existing approaches depend on modifying the model architecture or hypothetical perturbation field to indirectly approximate the model uncertainty. However, selecting views from indirect approximation does not guarantee optimal information gain for the model. By leveraging Fisher Information, we directly quantify observed information on the parameters of Radiance Fields and select candidate views by maximizing the Expected Information Gain (EIG). Our method achieves state-of-the-art results on multiple tasks, including view selection, active mapping, and uncertainty quantification, demonstrating its potential to advance the field of Radiance Fields.},
+  isbn = {978-3-031-72623-1 978-3-031-72624-8},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Jiang et al. - 2025 - FisherRF Active View Selection and Mapping with Radiance Fields Using Fisher Information.pdf}
+}
+
+@article{kerbl3DGaussianSplatting2023,
+  title = {{{3D Gaussian Splatting}} for {{Real-Time Radiance Field Rendering}}},
+  author = {Kerbl, Bernhard and Kopanas, Georgios and Leimkuehler, Thomas and Drettakis, George},
+  date = {2023-08},
+  journaltitle = {ACM Transactions on Graphics},
+  shortjournal = {ACM Trans. Graph.},
+  volume = {42},
+  number = {4},
+  pages = {1--14},
+  issn = {0730-0301, 1557-7368},
+  doi = {10.1145/3592433},
+  url = {https://dl.acm.org/doi/10.1145/3592433},
+  urldate = {2026-09-14},
+  abstract = {Radiance Field methods have recently revolutionized novel-view synthesis of scenes captured with multiple photos or videos. However, achieving high visual quality still requires neural networks that are costly to train and render, while recent faster methods inevitably trade off speed for quality. For unbounded and complete scenes (rather than isolated objects) and 1080p resolution rendering, no current method can achieve real-time display rates. We introduce three key elements that allow us to achieve state-of-the-art visual quality while maintaining competitive training times and importantly allow high-quality real-time (≥ 30 fps) novel-view synthesis at 1080p resolution. First, starting from sparse points produced during camera calibration, we represent the scene with 3D Gaussians that preserve desirable properties of continuous volumetric radiance fields for scene optimization while avoiding unnecessary computation in empty space; Second, we perform interleaved optimization/density control of the 3D Gaussians, notably optimizing anisotropic covariance to achieve an accurate representation of the scene; Third, we develop a fast visibility-aware rendering algorithm that supports anisotropic splatting and both accelerates training and allows realtime rendering. We demonstrate state-of-the-art visual quality and real-time rendering on several established datasets.},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Kerbl et al. - 2023 - 3D Gaussian Splatting for Real-Time Radiance Field Rendering.pdf}
+}
+
+@article{linRobustSceneChange,
+  title = {Robust {{Scene Change Detection Using Visual Foundation Models}} and {{Cross-Attention Mechanisms}}},
+  author = {Lin, Chun-Jung and Garg, Sourav and Chin, Tat-Jun and Dayoub, Feras},
+  abstract = {We present a novel method for scene change detection that leverages the robust feature extraction capabilities of a visual foundational model, DINOv2, and integrates fullimage cross-attention to address key challenges such as varying lighting, seasonal variations, and viewpoint differences. In order to effectively learn correspondences and mis-correspondences between an image pair for the change detection task, we propose to a) “freeze” the backbone in order to retain the generality of dense foundation features, and b) employ “fullimage” cross-attention to better tackle the viewpoint variations between the image pair. We evaluate our approach on two benchmark datasets, VL-CMU-CD and PSCD, along with their viewpoint-varied versions. Our experiments demonstrate significant improvements in F1-score, particularly in scenarios involving geometric changes between image pairs. The results indicate our method’s superior generalization capabilities over existing state-of-the-art approaches, showing robustness against photometric and geometric variations as well as better overall generalization when fine-tuned to adapt to new environments. Detailed ablation studies further validate the contributions of each component in our architecture. Our source code is available at: https://github.com/ChadLin9596/Robust-SceneChange-Detection.},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Lin et al. - Robust Scene Change Detection Using Visual Foundation Models and Cross-Attention Mechanisms.pdf}
+}
+
+@inproceedings{liUMADUniversityMacau2024,
+  title = {{{UMAD}}: {{University}} of {{Macau Anomaly Detection Benchmark Dataset}}},
+  shorttitle = {{{UMAD}}},
+  booktitle = {2024 {{IEEE}}/{{RSJ International Conference}} on {{Intelligent Robots}} and {{Systems}} ({{IROS}})},
+  author = {Li, Dong and Chen, Lineng and Xu, Cheng-Zhong and Kong, Hui},
+  date = {2024-10-14},
+  pages = {5836--5843},
+  publisher = {IEEE},
+  location = {Abu Dhabi, United Arab Emirates},
+  doi = {10.1109/IROS58592.2024.10802194},
+  url = {https://ieeexplore.ieee.org/document/10802194/},
+  urldate = {2026-09-14},
+  eventtitle = {2024 {{IEEE}}/{{RSJ International Conference}} on {{Intelligent Robots}} and {{Systems}} ({{IROS}})},
+  isbn = {979-8-3503-7770-5},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Li et al. - 2024 - UMAD University of Macau Anomaly Detection Benchmark Dataset.pdf}
+}
+
+@article{mildenhallNeRFRepresentingScenes,
+  title = {{{NeRF}}: {{Representing Scenes}} as {{Neural Radiance Fields}} for {{View Synthesis}}},
+  author = {Mildenhall, Ben and Srinivasan, Pratul P and Tancik, Matthew and Barron, Jonathan T and Ramamoorthi, Ravi and Ng, Ren},
+  abstract = {We present a method that achieves state-of-the-art results for synthesizing novel views of complex scenes by optimizing an underlying continuous volumetric scene function using a sparse set of input views. Our algorithm represents a scene using a fully-connected (nonconvolutional) deep network, whose input is a single continuous 5D coordinate (spatial location (x, y, z) and viewing direction (θ, φ)) and whose output is the volume density and view-dependent emitted radiance at that spatial location. We synthesize views by querying 5D coordinates along camera rays and use classic volume rendering techniques to project the output colors and densities into an image. Because volume rendering is naturally differentiable, the only input required to optimize our representation is a set of images with known camera poses. We describe how to effectively optimize neural radiance fields to render photorealistic novel views of scenes with complicated geometry and appearance, and demonstrate results that outperform prior work on neural rendering and view synthesis. View synthesis results are best viewed as videos, so we urge readers to view our supplementary video for convincing comparisons.},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Mildenhall et al. - NeRF Representing Scenes as Neural Radiance Fields for View Synthesis.pdf}
+}
+
+@article{mullerInstantNeuralGraphics2022,
+  title = {Instant Neural Graphics Primitives with a Multiresolution Hash Encoding},
+  author = {Müller, Thomas and Evans, Alex and Schied, Christoph and Keller, Alexander},
+  date = {2022-07},
+  journaltitle = {ACM Transactions on Graphics},
+  shortjournal = {ACM Trans. Graph.},
+  volume = {41},
+  number = {4},
+  pages = {1--15},
+  issn = {0730-0301, 1557-7368},
+  doi = {10.1145/3528223.3530127},
+  url = {https://dl.acm.org/doi/10.1145/3528223.3530127},
+  urldate = {2026-09-14},
+  abstract = {Neural graphics primitives, parameterized by fully connected neural networks, can be costly to train and evaluate. We reduce this cost with a versatile new input encoding that permits the use of a smaller network without sacrificing quality, thus significantly reducing the number of floating point and memory access operations: a small neural network is augmented by a multiresolution hash table of trainable feature vectors whose values are optimized through stochastic gradient descent. The multiresolution structure allows the network to disambiguate hash collisions, making for a simple architecture that is trivial to parallelize on modern GPUs. We leverage this parallelism by implementing the whole system using fully-fused CUDA kernels with a focus on minimizing wasted bandwidth and compute operations. We achieve a combined speedup of several orders of magnitude, enabling training of high-quality neural graphics primitives in a matter of seconds, and rendering in tens of milliseconds at a resolution of 1920×1080.},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Müller et al. - 2022 - Instant neural graphics primitives with a multiresolution hash encoding.pdf}
+}
+
+@article{wangCollabVisAdaptSpatioTemporalContextAware2026,
+  title = {{{CollabVisAdapt}}: {{Spatio-Temporal Context-Aware Adaptation}} of {{Shared Object Visualization}} for {{MR Telecollaboration}}},
+  shorttitle = {{{CollabVisAdapt}}},
+  author = {Wang, Xuanyu and Wang, Ye and Zhang, Weizhan and Guo, Shuaichen and Yan, Caixia and Yang, Shuming and Du, Haipeng and Chen, Wangdu and Wang, Qi},
+  date = {2026-05},
+  journaltitle = {IEEE Transactions on Visualization and Computer Graphics},
+  shortjournal = {IEEE Trans. Visual. Comput. Graphics},
+  volume = {32},
+  number = {5},
+  pages = {3636--3646},
+  issn = {1077-2626, 1941-0506, 2160-9306},
+  doi = {10.1109/TVCG.2026.3680703},
+  url = {https://ieeexplore.ieee.org/document/11474783/},
+  urldate = {2026-09-14},
+  abstract = {Mixed Reality (MR) telecollaboration aims to enable users to share local objects as real-time synchronized virtual replicas to remote partners and collaborate on physical tasks as if they were co-located. However, in everyday scenarios with mobile and easy-to-setup MR devices, visualizing shared objects in a single modality, ranging from 2D images to 3D reconstruction, struggles to simultaneously optimize all the aspects of Spatiality, Fidelity, and Real-time performance. To overcome this issue, existing methods explore integrating multiple visualization modalities to leverage their respective advantages in subsets of the three aspects. However, they focus on fixed modality combinations without considering user-centered task contexts and workflow, where users may prioritize different aspects of the visualization across task phases. Moreover, they lack support for switching or require manual switching across modalities, which could become disruptive and tiring. In this paper, we propose adapting object visualization based on spatio-temporal contexts in telecollaboration. Specifically, we first couple task type with the user’s relative viewing distance as thespatial context, and examine its impact on users’ prioritized visualization aspects, and the corresponding switching thresholds. With differing generation speeds of modalities, we then exploretemporalswitching schemes when the preferred modality is not immediately available. With the obtained design choices, we implement CollabVisAdapt, a proof-of-concept prototype that supports automatic adaptation of object visualization based on spatio-temporal contexts in MR telecollaboration. A user study in remote maintenance verifies the effectiveness of the proposed workflow with adaptive visualization and the usability of the system.},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Wang et al. - 2026 - CollabVisAdapt Spatio-Temporal Context-Aware Adaptation of Shared Object Visualization for MR Telec.pdf}
+}
+
+@online{wangVGGT$O$2026,
+  title = {{{VGGT-}}\${{Ω}}\$},
+  author = {Wang, Jianyuan and Chen, Minghao and Zhang, Shangzhan and Karaev, Nikita and Schönberger, Johannes and Labatut, Patrick and Bojanowski, Piotr and Novotny, David and Vedaldi, Andrea and Rupprecht, Christian},
+  date = {2026-05-14},
+  eprint = {2605.15195},
+  eprinttype = {arXiv},
+  eprintclass = {cs.CV},
+  doi = {10.48550/arXiv.2605.15195},
+  url = {http://arxiv.org/abs/2605.15195},
+  urldate = {2026-09-17},
+  abstract = {Recent feed-forward reconstruction models, such as VGGT, have proven competitive with traditional optimization-based reconstructors while also providing geometry-aware features useful for other tasks. Here, we show that the quality of these models scales predictably with model and data size. We do so by introducing VGGT-\$Ω\$, which substantially improves reconstruction accuracy, efficiency, and capabilities for both static and dynamic scenes. To enable training this model at an unprecedented scale, we introduce architectural changes that improve training efficiency, a high-quality data annotation pipeline that supports dynamic scenes, and a self-supervised learning protocol. We simplify VGGT's architecture by using a single dense prediction head with multi-task supervision and removing the expensive high-resolution convolutional layers. We also use registers to aggregate scene information into a compact representation and introduce register attention, which restricts inter-frame information exchange to these registers, in part replacing global attention. In this way, during training, VGGT-\$Ω\$ uses only about 30\% of the GPU memory of its predecessor, allowing us to train with 15x more supervised data than prior work and to leverage vast amounts of unlabeled video data. VGGT-\$Ω\$ achieves strong results for reconstruction of static and dynamic scenes across multiple benchmarks, for example, improving over the previous best camera estimation accuracy on Sintel by 77\%. We also show that the learned registers can improve vision-language-action models and support alignment with language, suggesting that reconstruction can be a powerful and scalable proxy task for spatial understanding. Project Page: http://vggt-omega.github.io/},
+  langid = {english},
+  pubstate = {prepublished},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Wang et al. - 2026 - VGGT-$Ω$.pdf}
+}
+
+@inproceedings{wu4DGaussianSplatting2024,
+  title = {{{4D Gaussian Splatting}} for {{Real-Time Dynamic Scene Rendering}}},
+  booktitle = {2024 {{IEEE}}/{{CVF Conference}} on {{Computer Vision}} and {{Pattern Recognition}} ({{CVPR}})},
+  author = {Wu, Guanjun and Yi, Taoran and Fang, Jiemin and Xie, Lingxi and Zhang, Xiaopeng and Wei, Wei and Liu, Wenyu and Tian, Qi and Wang, Xinggang},
+  date = {2024-06-16},
+  pages = {20310--20320},
+  publisher = {IEEE},
+  location = {Seattle, WA, USA},
+  doi = {10.1109/CVPR52733.2024.01920},
+  url = {https://ieeexplore.ieee.org/document/10656774/},
+  urldate = {2026-09-14},
+  abstract = {Representing and rendering dynamic scenes has been an important but challenging task. Especially, to accurately model complex motions, high efficiency is usually hard to guarantee. To achieve real-time dynamic scene rendering while also enjoying high training and storage efficiency, we propose 4D Gaussian Splatting (4D-GS) as a holistic representation for dynamic scenes rather than applying 3D-GS for each individual frame. In 4D-GS, a novel explicit representation containing both 3D Gaussians and 4D neural voxels is proposed. A decomposed neural voxel encoding algorithm inspired by HexPlane is proposed to efficiently build Gaussian features from 4D neural voxels and then a lightweight MLP is applied to predict Gaussian deformations at novel timestamps. Our 4D-GS method achieves real-time rendering under high resolutions, 82 FPS at an 800×800 resolution on an RTX 3090 GPU while maintaining comparable or better quality than previous stateof-the-art methods. More demos and code are available at https://guanjunwu.github.io/4dgs/.},
+  eventtitle = {2024 {{IEEE}}/{{CVF Conference}} on {{Computer Vision}} and {{Pattern Recognition}} ({{CVPR}})},
+  isbn = {979-8-3503-5300-6},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Wu et al. - 2024 - 4D Gaussian Splatting for Real-Time Dynamic Scene Rendering.pdf}
+}
+
+@article{zengGaussianUpdateContinual3D,
+  title = {{{GaussianUpdate}}: {{Continual 3D Gaussian Splatting Update}} for {{Changing Environments}}},
+  author = {Zeng, Lin and Zhao, Boming and Hu, Jiarui and Shen, Xujie and Dang, Ziqiang and Cui, Zhaopeng},
+  abstract = {Novel view synthesis with neural models has advanced rapidly in recent years, yet adapting these models to scene changes remains an open problem. Existing methods are either labor-intensive, requiring extensive model retraining, or fail to capture detailed types of changes over time. In this paper, we present GaussianUpdate, a novel approach that combines 3D Gaussian representation with continual learning to address these challenges. Our method effectively updates the Gaussian radiance fields with current data while preserving information from past scenes. Unlike existing methods, GaussianUpdate explicitly models different types of changes through a novel multi-stage update strategy. Additionally, we introduce a visibility-aware continual learning approach with generative replay, enabling self-aware updating without the need to store images. The experiments on the benchmark dataset demonstrate our method achieves superior and real-time rendering with the capability of visualizing changes over different times. Please refer to our project webpage for more informations: https://zju3dv.github.io/GaussianUpdate.},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Zeng et al. - GaussianUpdate Continual 3D Gaussian Splatting Update for Changing Environments.pdf}
+}
+
+@article{zhouComprehensiveReviewVisionBased2024,
+  title = {A {{Comprehensive Review}} of {{Vision-Based 3D Reconstruction Methods}}},
+  author = {Zhou, Linglong and Wu, Guoxin and Zuo, Yunbo and Chen, Xuanyu and Hu, Hongle},
+  date = {2024-04-05},
+  journaltitle = {Sensors},
+  shortjournal = {Sensors},
+  volume = {24},
+  number = {7},
+  pages = {2314},
+  issn = {1424-8220},
+  doi = {10.3390/s24072314},
+  url = {https://www.mdpi.com/1424-8220/24/7/2314},
+  urldate = {2026-09-14},
+  abstract = {With the rapid development of 3D reconstruction, especially the emergence of algorithms such as NeRF and 3DGS, 3D reconstruction has become a popular research topic in recent years. 3D reconstruction technology provides crucial support for training extensive computer vision models and advancing the development of general artificial intelligence. With the development of deep learning and GPU technology, the demand for high-precision and high-efficiency 3D reconstruction information is increasing, especially in the fields of unmanned systems, human-computer interaction, virtual reality, and medicine. The rapid development of 3D reconstruction is becoming inevitable. This survey categorizes the various methods and technologies used in 3D reconstruction. It explores and classifies them based on three aspects: traditional static, dynamic, and machine learning. Furthermore, it compares and discusses these methods. At the end of the survey, which includes a detailed analysis of the trends and challenges in 3D reconstruction development, we aim to provide a comprehensive introduction for individuals who are currently engaged in or planning to conduct research on 3D reconstruction. Our goal is to help them gain a comprehensive understanding of the relevant knowledge related to 3D reconstruction.},
+  langid = {english},
+  file = {/home/alessandro/Desktop/thesis/papers/pdf/Zhou et al. - 2024 - A Comprehensive Review of Vision-Based 3D Reconstruction Methods.pdf}
+}

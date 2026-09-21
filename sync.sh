@@ -5,8 +5,9 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo "!! Uncommitted changes: commit them first (git add -A && git commit -m ...)." >&2
+if [ -n "$(git status --porcelain)" ]; then
+    git status --short
+    echo "!! Uncommitted or new files: commit them first (git add -A && git commit -m ...)." >&2
     exit 1
 fi
 
