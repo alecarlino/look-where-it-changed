@@ -1,6 +1,4 @@
-# Look Where It Changed
-
-Thesis: robot-guided active vision for updating Gaussian Splatting scenes.
+# Look Where It Changed: robot-Guided Active Vision For Updating Gaussian Splatting Scenes
 
 ## Folders
 
