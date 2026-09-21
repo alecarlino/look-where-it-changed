@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
-# Sync report/ with Overleaf and the whole repo with GitHub.
-# Usage: ./sync.sh   (commit your local changes first)
+# Commit local changes, then sync report/ with Overleaf and the whole repo with GitHub.
+# Usage: ./sync.sh ["commit message"]   (asks for a message if there are changes and none is given)
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 if [ -n "$(git status --porcelain)" ]; then
     git status --short
-    echo "!! Uncommitted or new files: commit them first (git add -A && git commit -m ...)." >&2
-    exit 1
+    msg="${1:-}"
+    if [ -z "$msg" ]; then
+        read -rp "Commit message: " msg
+    fi
+    if [ -z "$msg" ]; then
+        echo "!! Empty commit message, nothing done." >&2
+        exit 1
+    fi
+    echo "== 0/4 commit =="
+    git add -A
+    git commit -m "$msg"
 fi
 
 echo "== 1/4 GitHub -> local =="
