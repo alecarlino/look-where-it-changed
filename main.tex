@@ -1,0 +1,58 @@
+\documentclass[12pt, a4paper, twoside]{article}
+
+% Page geometry (margins, header, footer)
+\usepackage[left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm, includehead, includefoot]{geometry}
+
+% Line spacing
+\linespread{1.3}
+
+% Standard packages
+\usepackage{amsmath} % For advanced math typesetting
+\usepackage[dvips]{graphicx} % For including images
+\usepackage{xcolor} % For defining custom colours
+\usepackage{titling} % For setting title parameters
+\usepackage{tikz} % For tikz graphics
+\usepackage{circuitikz} % For circuitikz
+\usepackage{amssymb} % For mathcal
+\usepackage{lmodern}      
+
+% Define custom colours
+\definecolor{raspberry}{RGB}{213,62,79}
+\definecolor{tomato}{RGB}{244,109,67}
+\definecolor{carrot}{RGB}{253,174,97}
+\definecolor{tangerine}{RGB}{254,224,139}
+\definecolor{lemon}{RGB}{255,255,191}
+\definecolor{cabbage}{RGB}{230,245,152}
+\definecolor{zucchini}{RGB}{102,194,165}
+\definecolor{blueberry}{RGB}{50,136,189}
+
+% Define in-document comment settings
+\newcommand{\rem}[3]{{\colorbox{#2}{\sffamily\scriptsize\bfseries\textcolor{white}{#1}}}{\sffamily\small\itshape\textcolor{#2}{#3}}}
+
+% Assign specific colours to different authors
+\newcommand{\ac}[1]{\rem{Alessandro}{tomato}{#1}}
+\newcommand{\lm}[1]{\rem{ProfMagri}{zucchini}{#1}}
+\newcommand{\wx}[1]{\rem{ProfWang}{blueberry}{#1}}
+
+% Move the title up
+\setlength{\droptitle}{-4cm}
+
+% Document metadata
+\title{Look Where It Changed: Robotic Next-Best-View Planning for Updating Gaussian Splatting}
+\author{Alessandro Carlino}
+\date{\today}
+
+\begin{document}
+
+\setlength{\droptitle}{-4cm}
+\maketitle
+
+%\input{sections/introduction.tex}
+
+%\input{sections/problem_formulation.tex}
+
+%\input{sections/background.tex}
+
+%\input{sections/related_work.tex}
+
+\end{document}
