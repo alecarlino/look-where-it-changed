@@ -1,4 +1,4 @@
-# Look Where It Changed: robot-Guided Active Vision For Updating Gaussian Splatting Scenes
+# Look Where It Changed: Robot-Guided Active Vision For Updating Gaussian Splatting Scenes
 
 ## Folders
 
