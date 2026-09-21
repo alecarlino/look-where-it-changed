@@ -1,0 +1,33 @@
+# Large / regenerable data and outputs
+data/
+runs/
+papers/pdf/
+report/build/
+archive/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Model weights / checkpoints
+*.ckpt
+*.pth
+
+# LaTeX build files
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.out
+*.toc
+*.bbl
+*.blg
+
+# Editor / OS cruft
+.DS_Store
+._*
+*.swp
