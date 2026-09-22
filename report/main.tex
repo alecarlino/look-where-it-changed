@@ -14,7 +14,7 @@
 \usepackage{tikz} % For tikz graphics
 \usepackage{circuitikz} % For circuitikz
 \usepackage{amssymb} % For mathcal
-\usepackage[hybrid]{markdown} % For markdown with latex equations
+\usepackage[texMathDollars, rawAttribute, contentBlocks]{markdown} % For markdown with latex equations
 \usepackage{lmodern}
 
 
@@ -48,6 +48,8 @@
 
 \setlength{\droptitle}{-4cm}
 \maketitle
+
+\markdownInput{source/simulation.md}
 
 %\input{sections/introduction.tex}
 
