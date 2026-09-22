@@ -1,9 +1,8 @@
 # Note tecniche — scena sintetica
 
-Documentazione di `synthetic_point_cloud.py`, `change_region.py`,
-`camera_locus.py`, `visibility_filter.py`, `detection_sweep.py`,
-`knowledge.py`, `measurement.py`, `planner.py`, `trajectory.py`,
-`plot_scene.py` e `scene_viewer.py`. Il codice
+Documentazione di `synthetic_point_cloud.py`, `camera_locus.py`,
+`visibility_filter.py`, `detection_sweep.py`, `knowledge.py`,
+`measurement.py`, `planner.py`, `trajectory.py` e `scene_viewer.py`. Il codice
 porta solo commenti da una riga; il ragionamento, le formule e la taratura
 stanno qui.
 
@@ -15,94 +14,142 @@ pipeline ha senso. Occlusione, angolo di incidenza e confine fra noto e
 ignoto sono proprietà che esistono solo se la scena ha superfici e c'è un
 punto di vista. Con punti sparsi in un volume nessuna di queste è definita.
 
-## Perché un'isosuperficie di un campo casuale
+## Perché l'insieme di escursione di un processo gaussiano
 
 L'alternativa era un catalogo di forme parametriche (sfera, toro, C, L) con
 parametri casuali. Scartata: le forme restano quelle che hai nominato, e la
-varietà è apparente. L'isosuperficie di un campo casuale dà invece
-gratuitamente, dalla casualità e non dalla costruzione:
+varietà è apparente. Un tentativo intermedio, anch'esso scartato, spazzava
+una sezione circolare lungo una curva casuale di Fourier: produceva sempre
+un filo ingrossato, topologicamente un tubo, mai un oggetto con massa.
+
+L'insieme di escursione di un campo casuale — la regione dove supera una
+soglia — dà invece gratuitamente, dalla casualità e non dalla costruzione:
 
 - **topologia arbitraria** — manici, cavità, componenti staccate;
 - **concavità e auto-occlusione**, che è il motivo per cui la selezione di
   viste non è banale: su un corpo convesso ogni vista vede la silhouette e il
   problema si risolve da solo;
-- **multi-scala con una manopola sola**, il decadimento spettrale;
+- **due parametri con un nome standard**, la lunghezza di scala e la
+  rugosità;
 - **riproducibilità** dal seed.
 
-Un tentativo intermedio, scartato, era un tubo generato spazzando una sezione
-circolare lungo una curva casuale di Fourier. Funzionava ma produceva sempre
-un filo ingrossato: topologicamente un tubo, mai un oggetto con massa.
+Ogni pezzo del generatore è una **costruzione pubblicata**, per poterlo
+citare invece di doverlo giustificare: random Fourier features (Rahimi e
+Recht, 2007), kernel Matérn, sua densità spettrale e funzione media non nulla
+(Rasmussen e Williams, *Gaussian Processes for Machine Learning*, 2006, §2.7
+e §4.2), insiemi di escursione (Adler e Taylor, *Random Fields and
+Geometry*, 2007), intersezione come minimo (Ricci, 1973), proiezione sulla
+superficie lungo il gradiente (Witkin e Heckbert, 1994), distanza al primo
+ordine (Taubin, 1991). Un generatore precedente, costruito ad hoc, è
+descritto in fondo a questa parte.
 
-## Il campo
+## Il campo: random Fourier features con kernel Matérn
 
-$$f(x) = \sum_k a_k \sin(w_k \cdot x + p_k) - c(x), \qquad a_k = |w_k|^{-\text{decay}}$$
+$$f(x) = \sqrt{\tfrac{2}{K}} \sum_{k=1}^{K} \cos(\omega_k \cdot x + b_k), \qquad b_k \sim U(0, 2\pi), \qquad \omega_k \sim p(\omega)$$
 
-con $w_k$ il vettore d'onda del modo $k$ e $p_k$ la sua fase. L'oggetto è la
-regione $f(x) > \text{level}$, quindi la superficie campionata è
-$f(x) = \text{level}$.
+con gradiente analitico, dalla stessa proiezione del valore,
 
-Gradiente, analitico e calcolato dalla stessa proiezione del valore:
+$$\nabla f(x) = -\sqrt{\tfrac{2}{K}} \sum_{k=1}^{K} \sin(\omega_k \cdot x + b_k)\, \omega_k .$$
 
-$$\nabla f(x) = \sum_k a_k \cos(w_k \cdot x + p_k)\, w_k$$
+Per il teorema di Bochner, se le frequenze $\omega_k$ si estraggono dalla
+densità spettrale $p(\omega)$ di un kernel stazionario, $f$ è un campione
+approssimato di un processo gaussiano con quel kernel, a media nulla e
+**varianza unitaria per costruzione** (Rahimi e Recht, 2007). L'ampiezza è la
+stessa per tutti i termini: lo spettro lo decide la distribuzione delle
+frequenze, non il loro peso.
 
-**Direzioni** uniformi sulla sfera, ottenute normalizzando un vettore
-gaussiano. Campionare gli angoli uniformemente non va: addensa ai poli.
+Il kernel è il **Matérn**, con due parametri:
 
-**Frequenze** log-uniformi sulla banda, così ogni ottava è equamente
-rappresentata. Uniformi in frequenza affollerebbero l'estremo alto e
-lascerebbero sotto-campionate le feature grandi, che sono quelle che
-definiscono la forma complessiva.
+- la lunghezza di scala $\ell$ = `length` × R, la dimensione delle feature;
+- la rugosità $\nu$ = `smoothness`: più è bassa, più la superficie è
+  irregolare.
 
-**Ampiezze** che scalano come la frequenza elevata a `-decay`. È tutto il
-significato della manopola: `decay` è la pendenza dello spettro di potenza, e
-scambia la dimensione delle feature con la loro rugosità.
+La sua densità spettrale in 3D è proporzionale a
+$(2\nu/\ell^2 + |\omega|^2)^{-(\nu + 3/2)}$, cioè una **t di Student
+multivariata** con $2\nu$ gradi di libertà e scala $1/\ell$, che si estrae
+in una riga:
 
-## Normalizzazione a deviazione unitaria
+$$\omega_k = \frac{z_k}{\ell} \sqrt{\frac{2\nu}{g_k}}, \qquad z_k \sim \mathcal{N}(0, I), \quad g_k \sim \chi^2_{2\nu} .$$
 
-Il campo viene riscalato perché abbia deviazione standard unitaria. Senza,
-la sua ampiezza dipende da `n_modes` e da `decay`, quindi `STRENGTH`
-significherebbe una cosa diversa per ogni configurazione e il termine di
-chiusura andrebbe ritarato ogni volta. Con la normalizzazione `STRENGTH` è
-misurato in deviazioni standard del campo, e `decay` resta una manopola
-indipendente.
+$K$ = `n_modes` = 256: più termini rendono la distribuzione marginale più
+vicina alla gaussiana, a costo lineare.
 
-## Termine radiale di chiusura
+## La media che scende verso il bordo
 
-$$c(x) = \text{STRENGTH} \cdot s(x)^2, \qquad s(x) = \max\left(0, \frac{|x| - r_{\text{in}}}{R - r_{\text{in}}}\right)$$
+$$g(x) = f(x) + m(x) - u, \qquad m(x) = -\text{MEAN\_DROP}\,\frac{|x|^2}{R^2}$$
 
-con $r_{\text{in}} = \text{CLOSURE} \cdot R$. Gradiente:
+Un processo gaussiano può avere una funzione media non nulla (Rasmussen e
+Williams, §2.7). Con una media che scende verso il bordo il campo sta sopra
+soglia soprattutto al centro, e l'oggetto si concentra dentro la scena.
 
-$$\nabla c(x) = \frac{2\,\text{STRENGTH}\, s(x)}{(R - r_{\text{in}})\,|x|}\, x$$
+Senza media la costruzione è corretta ma **non realistica**. Un campo
+stazionario tocca il bordo con probabilità pari a `fill` ovunque sulla
+sfera, quindi l'intersezione con la sfera lo taglia estesamente e la scena
+diventa una **sfera intagliata**: con `length` 0.3, dal 25 al 34% della
+superficie era calotta sferica, cioè una superficie grande, convessa e
+visibile da tutto il locus. Al crescere della caduta della media (prova a
+parte, con $\nu$ = 1.5, 5 semi):
 
-Senza questo termine l'isosuperficie viene tagliata aperta dove attraversa la
-sfera della scena, e l'oggetto resta senza un interno ben definito — cosa che
-serve a valle per i test dentro/fuori nell'occlusione.
+| `MEAN_DROP` | calotta | componenti oltre il 2% dei punti | `fill` misurato |
+|---|---|---|---|
+| 0 | 27.1% | 2.0 | 0.328 ± 0.078 |
+| 2 | 9.0% | 1.6 | 0.318 ± 0.071 |
+| **4** | **0.8%** | **1.0** | **0.309 ± 0.055** |
+| 6 | 0.0% | 1.0 | 0.308 ± 0.040 |
 
-Il `max(0, ...)` è ciò che lo rende **a un lato**: $s$ è identicamente zero
-dentro $r_{\text{in}}$, quindi il termine e il suo gradiente svaniscono lì e
-la forma non viene disturbata. Una prima versione usava una potenza quarta su
-tutto il raggio: dominava il campo e schiacciava ogni oggetto a palla. È uno
-dei due errori che hanno prodotto i blob convessi del primo tentativo.
+A 4 le calotte sono ridotte a pochi punti e resta un oggetto solo; oltre, il
+campo si comprime verso una palla. L'intersezione con la sfera resta come
+rete di sicurezza per la rara parte che ci arriva.
 
-## Isolivello dal quantile
+## Il livello dalla frazione attesa
 
-L'oggetto è la regione $f(x) > \text{level}$, quindi la frazione di volume
-della scena occupata è la frazione di campioni sopra il livello. Prendere il
-quantile $1 - \text{fill}$ di $f$ su un campione uniforme nel volume dà
-allora esattamente il livello che lascia dentro la frazione richiesta,
-qualunque sia la distribuzione di $f$ per quel campo particolare.
+Il campo è gaussiano a varianza unitaria, quindi un punto a frazione $r$ del
+raggio sta dentro l'oggetto con probabilità $1 - \Phi(u - m(r))$. Il livello
+$u$ è quello per cui la media di questa probabilità sul volume della palla,
+pesato da $3r^2\,dr$, vale `fill`:
+
+$$\text{fill} = 3 \int_0^1 \big(1 - \Phi(u - m(r))\big)\, r^2\, dr$$
+
+risolto numericamente per $u$ (`quad` e `brentq`). È la parametrizzazione
+degli insiemi di escursione per soglia (Adler e Taylor, 2007).
+
+`fill` è quindi la frazione **attesa**, non quella di ogni scena. La palla
+contiene solo circa tre lunghezze di correlazione, quindi una singola
+realizzazione oscilla molto: chiedendo 0.30 si misura **0.318 ± 0.083** su 20
+campi, 0.170 ± 0.067 chiedendo 0.15 e 0.465 ± 0.088 chiedendo 0.45 — un
+leggero eccesso sistematico di circa 0.02. Il generatore precedente, che
+fissava il livello col quantile empirico, dava il `fill` esatto per ogni
+scena; qui lo si è scambiato con una formula citabile e con più varietà fra
+scene.
+
+## La chiusura: intersezione con una sfera
+
+$$g_{\text{scena}}(x) = \min\big(g(x),\; R - |x|\big)$$
+
+L'intersezione di due solidi è il minimo dei loro campi (Ricci, 1973), la
+stessa operazione, duale, dell'unione come massimo usata per gli oggetti.
+Dove l'insieme di escursione raggiunge la sfera, è la sfera a chiuderlo, e
+l'oggetto ha sempre un interno ben definito — che serve a valle per i test
+dentro/fuori nell'occlusione. Con la media che scende la calotta è dello
+0–3% della superficie.
 
 ## Campionamento: il guscio a spessore costante
 
-La distanza al primo ordine da $x$ all'isosuperficie è
+La distanza al primo ordine da $x$ alla superficie è (Taubin, 1991)
 
-$$d(x) = \frac{|f(x) - \text{level}|}{|\nabla f(x)|}$$
+$$d(x) = \frac{|g(x)|}{|\nabla g(x)|}$$
 
-Dividere la differenza di campo per la pendenza trasforma quindi il test in
-una distanza vera. Conta per la densità: un guscio a differenza di campo
-costante sarebbe spesso dove il campo è piatto e sottile dove è ripido, e i
-punti si ammasserebbero nelle zone piatte. Con un guscio a spessore costante
-escono distribuiti uniformemente sulla superficie — verificato sotto.
+Dividere il valore del campo per la pendenza trasforma quindi il test in una
+distanza vera. Conta per la densità: un guscio a valore di campo costante
+sarebbe spesso dove il campo è piatto e sottile dove è ripido, e i punti si
+ammasserebbero nelle zone piatte. Con un guscio a spessore costante escono
+distribuiti uniformemente sulla superficie — verificato sotto.
+
+I candidati si estraggono in una palla **più larga di un guscio** di quella
+della scena. La calotta sta esattamente sulla sfera: estraendo solo dentro,
+il guscio attorno a lei esisterebbe da un lato solo, e le calotte
+riceverebbero metà dei candidati delle altre superfici, con densità e area
+sottostimate della metà.
 
 Il campionamento è per rigetto, a lotti. Il tasso di accettazione non è noto
 a priori perché dipende da quanta superficie ha quel campo dentro la scena,
@@ -111,81 +158,127 @@ guscio è sottile, la maggior parte dei candidati cade lontano.
 
 ## Proiezione di Newton
 
-Newton sull'equazione scalare $f(x) = \text{level}$. Il gradiente è una riga
-sola e non un sistema quadrato, quindi si usa la sua pseudo-inversa:
+Newton sull'equazione scalare $g(x) = 0$ (Witkin e Heckbert, 1994). Il
+gradiente è una riga sola e non un sistema quadrato, quindi si usa la sua
+pseudo-inversa:
 
-$$x \leftarrow x - \frac{f(x) - \text{level}}{|\nabla f(x)|^2}\, \nabla f(x)$$
+$$x \leftarrow x - \frac{g(x)}{|\nabla g(x)|^2}\, \nabla g(x)$$
 
 Il passo si muove lungo la normale all'insieme di livello, che è anche la via
 più breve per raggiungerlo. Convergenza quadratica, da cui il numero piccolo
 di passi.
 
-Il termine radiale è ripido vicino al bordo, quindi lì un passo di Newton può
-spingere un punto fuori dalla sfera della scena. Quei punti vengono scartati
-e non riportati dentro: clampare li lascerebbe fuori dalla superficie.
+Vicino allo **spigolo** dove la superficie del campo incontra la calotta, il
+minimo cambia componente da un passo all'altro e Newton può rimbalzare senza
+atterrare: in una prima versione un punto finiva a 0.47 R dalla superficie.
+Dopo i passi di Newton si tengono quindi solo i punti atterrati, a distanza
+al primo ordine sotto `LANDED` × R. Il campionamento è già per rigetto, e lo
+spigolo è una linea: scartarli non cambia la densità altrove.
 
-## Taratura delle costanti
+## Parametri e costanti
+
+| parametro | default | ruolo |
+|---|---|---|
+| `n_modes` | 256 | Termini delle random Fourier features. |
+| `length` | 0.30 | Lunghezza di scala del Matérn, in raggi della scena. |
+| `smoothness` | 2.5 | Rugosità $\nu$ del Matérn. |
+| `fill` | 0.30 | Frazione attesa della scena dentro l'oggetto. |
 
 | costante | valore | ruolo |
 |---|---|---|
-| `FREQ_MIN` | 3.0 | Estremo basso della banda, in unità di 1/R. Fissa la dimensione della feature più grande. |
-| `FREQ_MAX` | 16.0 | Estremo alto. |
-| `CLOSURE` | 0.60 | Frazione del raggio entro cui il termine radiale è nullo. |
-| `STRENGTH` | 3.0 | Deviazioni standard del campo raggiunte dal termine radiale al bordo. |
-| `SHELL` | 0.02 | Semispessore del guscio di campionamento, in frazioni di R. |
+| `MEAN_DROP` | 4.0 | Caduta della media dal centro al bordo, in deviazioni standard. |
+| `SHELL` | 0.02 | Semispessore del guscio di campionamento, in raggi. |
 | `STEPS` | 4 | Passi di Newton. |
-| `LEVEL_PROBE` | 20000 | Campioni per stimare l'isolivello. |
-| `NORM_PROBE` | 4000 | Campioni per stimare la deviazione del campo. |
+| `LANDED` | 1e-9 | Distanza dalla superficie che conta come atterrato, in raggi. |
 | `MAX_BATCHES` | 200 | Lotti prima di rinunciare. |
 
-Note sulla taratura, cioè in che direzione muoverle:
-
-- **`FREQ_MIN` è critica.** Con la lunghezza d'onda più lunga molto maggiore
-  del raggio il campo è quasi costante sulla scena e ogni oggetto esce come
-  un blob convesso. Il primo tentativo aveva `FREQ_MIN = 1.5`, cioè
-  lunghezza d'onda ~4R: tutti blob. Deve essere comparabile alla scena.
+- **La lunghezza di scala va confrontata con la scena.** Con feature molto
+  più grandi del raggio il campo è quasi costante e ogni oggetto esce come
+  un blob convesso: è l'errore che ha prodotto i blob del generatore
+  precedente, e vale identico qui per `length`.
 - **`SHELL`** sottile significa pochi candidati sopravvissuti, spesso
   significa che Newton deve viaggiare più a lungo e può attraversare in un
   ramo vicino della superficie.
-- **`STEPS = 4`** è generoso: dal guscio sopra il residuo arriva alla
-  precisione macchina in due o tre passi.
-- **`LEVEL_PROBE` e `NORM_PROBE`** stimano un quantile e un momento di una
-  funzione liscia sulla palla: qualche migliaio di campioni è già molto più
-  della precisione necessaria.
-- **`MAX_BATCHES`** lo raggiunge solo un campo patologico, o un `fill` così
-  estremo che l'isosuperficie è quasi vuota.
+- **`STEPS = 4`** è generoso: dal guscio il residuo arriva alla precisione
+  macchina in due o tre passi, spigolo a parte.
+
+### Perché $\nu$ = 2.5
+
+La rugosità scambia difficoltà della scena contro affidabilità del filtro di
+visibilità. Filtro a impronta 0.7 e margine 1.0, 3 scene × 4 camere, contro
+la visibilità esatta:
+
+| $\nu$ | accordo del filtro | falsi visibili | falsi occlusi | visibile da una vista |
+|---|---|---|---|---|
+| 0.5 | 84.2% | 4.7% | 11.1% | 27% |
+| 1.5 | 90.9% | 3.8% | 5.2% | 35% |
+| **2.5** | **93.9%** | **2.8%** | **3.3%** | **37%** |
+| 5.0 | 94.3% | 2.6% | 3.1% | 43% |
+
+Più la superficie è rugosa, più la scena è difficile e meno il filtro è
+affidabile: pieghe più piccole dell'impronta, e normali stimate peggio dal
+piano locale. A 2.5 il filtro torna vicino al 95% che aveva sul generatore
+precedente e la difficoltà resta la stessa; oltre, si guadagna quasi niente
+in accuratezza e le scene diventano più facili. Anche fisicamente oggetti
+reali sono lisci alla scala della distanza fra i punti, e una rugosità come
+$\nu$ = 0.5 non rappresenta nulla di plausibile.
 
 ## Verifiche
 
-**I punti stanno sulla superficie.** Residuo $|f - \text{level}| /
-|\nabla f|$ sui punti restituiti: mediana 5.7e-17, massimo 2.2e-13. Newton
-converge alla precisione macchina.
+**Il campo ha la covarianza dichiarata.** 4000 campi indipendenti, coppie di
+punti a distanza $r$, contro il Matérn $\nu$ = 5/2 analitico
+$k(r) = (1 + \sqrt5 r/\ell + 5r^2/3\ell^2)\,e^{-\sqrt5 r/\ell}$ con $\ell$ = 0.3:
+
+| $r$ | 0.0 | 0.1 | 0.2 | 0.3 | 0.5 | 0.8 |
+|---|---|---|---|---|---|---|
+| misurata | 1.000 | 0.914 | 0.742 | 0.519 | 0.235 | 0.050 |
+| analitica | 1.000 | 0.916 | 0.728 | 0.524 | 0.225 | 0.048 |
+
+Varianza 1.037, media 0.004. È la verifica che rende la formula citabile: il
+campo è davvero ciò che il riferimento dice.
+
+**I punti stanno sulla superficie.** Residuo massimo sotto 1e-9 su 5 scene da
+20000 punti, cioè `LANDED`.
 
 **La densità superficiale è uniforme.** Coefficiente di variazione della
-distanza al vicino più prossimo: 0.521, contro 0.523 di un processo di
-Poisson uniforme sul piano. I punti sono un campione uniforme sulla
-superficie, che è ciò che il guscio a spessore costante doveva garantire.
+distanza al vicino più prossimo fra 0.523 e 0.531, contro 0.523 di un
+processo di Poisson uniforme sul piano. Anche sulle calotte, grazie alla
+palla allargata: la spaziatura lì è il 94–99% di quella altrove.
 
-**L'auto-occlusione è reale.** Misurata con l'operatore di hidden point
-removal di Katz et al. (2007), calibrato su una sfera: misura 0.314 contro il
-valore analitico esatto $(1 - 1/d)/2 = 0.300$ da distanza $d = 2.5$, quindi
-lo strumento è affidabile. Frazione di punti visibile da una singola vista,
-media su 30 pose × 5 seed:
+**Un oggetto solo, con poca calotta.** Calotta dallo 0 al 3.1% della
+superficie; una sola componente sopra il 2% dei punti, due in un seme su
+cinque.
 
-| scena | media | minimo |
-|---|---|---|
-| sfera (convessa, riferimento) | 0.314 | 0.300 |
-| isosuperficie `fill=0.30` | 0.181 | 0.079 |
-| isosuperficie `fill=0.15` | 0.153 | 0.065 |
-| isosuperficie `decay=0.8` | 0.114 | 0.053 |
+**Nessuna superficie irraggiungibile.** Nessun punto è invisibile da tutte le
+120 pose di una sfera intera di camere: niente bolle chiuse dentro l'oggetto,
+che sarebbero bersagli che nessuna vista può raggiungere.
 
-Una vista singola vede fra un terzo e un ottavo di quello che vedrebbe su un
-corpo convesso, e ci sono pose che ne vedono il 5%. È la condizione che rende
-la selezione di viste non banale.
+**L'auto-occlusione è reale.** Frazione di superficie visibile da una vista,
+con la **visibilità esatta** — marcia lungo il raggio nel campo — su 120 pose
+a raggio 3: dal 36 al 40% su tre scene. Il generatore precedente, sulle stesse
+camere, dava il 41.6%: le scene nuove sono un po' più difficili.
 
-Risultato non ovvio: **`decay` è la manopola di occlusione più forte**, molto
-più di quanto suggerisca l'impressione visiva. Abbassarlo aggiunge dettaglio
-fine che si auto-occlude.
+**Una lezione di metodo.** In una prima misura l'auto-occlusione delle scene
+nuove era stata stimata con l'operatore HPR (Katz, Tal e Basri, 2007), che
+dava il 4–9% di superficie visibile da una vista. Era sbagliato: su queste
+superfici l'HPR concorda con la visibilità esatta solo al 60–70%, contro il
+92% del filtro di visibilità. L'HPR era stato calibrato su una sfera, dove è
+esatto, ma sulle superfici rugose non regge. Da allora il riferimento è solo
+la visibilità esatta, e i numeri dell'HPR di quella prima misura sono stati
+scartati.
+
+### Il generatore precedente
+
+Il primo generatore era una costruzione **ad hoc**: somma di sinusoidi con
+direzioni isotrope, frequenze log-uniformi fra 3/R e 16/R e ampiezze che
+decadevano come la frequenza alla potenza `decay`, normalizzata a varianza
+unitaria; chiusura con un termine radiale quadratico nullo dentro il 60% del
+raggio; livello dal quantile empirico. Funzionava — superfici a residuo
+1e-12, oggetti lobati e concavi — ma nessun pezzo aveva un riferimento da
+citare, e il termine di chiusura era del tutto inventato. È stato sostituito
+dalla costruzione sopra, che a parità di camere dà scene equivalenti e un po'
+più auto-occludenti. Tutti i numeri a valle sono stati rifatti sul generatore
+nuovo.
 
 ## Scena prima e dopo il cambiamento
 
@@ -196,7 +289,7 @@ si lavora a punti.
 
 ### Perché due scene e non un'etichetta
 
-Una prima versione (`change_region.py`, sotto) marcava come cambiati punti
+Una prima versione marcava come cambiati punti
 che esistevano già, cioè simulava una superficie *nota* che cambia. È
 esattamente il caso che i metodi basati su Fisher, FisherRF in testa, già
 risolvono: i Gaussiani ci sono e cambiano valore. Il caso che motiva la tesi è
@@ -211,10 +304,14 @@ qualcosa è sparito bisogna vedere *attraverso* il posto dove stava.
 L'etichetta resta il modello giusto per un solo caso: un cambiamento di
 **aspetto** con la stessa geometria, come una superficie ridipinta.
 
-Misurato, la differenza è netta. Con due camere di sweep l'etichettatura
-dava il 46% del cambiamento visto, gli oggetti veri il **25%**; con quattro,
-96% contro **71%**. Un oggetto vero ha facce rivolte verso la superficie su
-cui poggia e un retro, che una toppa etichettata non ha.
+La differenza è strutturale e non dipende da un numero: un oggetto vero ha
+facce rivolte verso la superficie su cui poggia e un retro, occlude ciò che
+gli sta dietro e rivela ciò che copriva, e la sua geometria non è nota prima
+di essere vista. Una toppa etichettata non ha nessuna di queste proprietà.
+Sul generatore precedente la differenza si vedeva anche nei numeri — con
+quattro camere di sweep l'etichettatura dava il 96% del cambiamento visto,
+gli oggetti veri il 71% — ma quel confronto non è stato rifatto sul
+generatore attuale, perché la versione etichettata non è più usata.
 
 ### Composizione con i campi impliciti
 
@@ -298,92 +395,18 @@ $2hA$, quindi la frazione di candidati che ci cade dà $A$.
 | caso | old | new | aggiunti | rimossi |
 |---|---|---|---|---|
 | nessuno | 20000 | 20000 | 0 | 0 |
-| 1 aggiunto | 20000 | 20702 | 877 | 179 |
-| 1 rimosso | 20702 | 20000 | 179 | 877 |
-| 1 spostato | 20702 | 21018 | 1236 | 918 |
-| 2 aggiunti, 1 rimosso, 1 spostato | 21481 | 22538 | 3003 | 1938 |
+| 1 aggiunto | 20000 | 20869 | 889 | 52 |
+| 1 rimosso | 20869 | 20000 | 52 | 889 |
+| 1 spostato | 20869 | 20881 | 961 | 927 |
+| 2 aggiunti, 1 rimosso, 1 spostato | 21755 | 22768 | 3020 | 2060 |
 
-  I 179 sono lo sfondo coperto dall'oggetto: aggiungerlo li rimuove,
+  I 52 sono lo sfondo coperto dall'oggetto: aggiungerlo li rimuove,
   toglierlo li rivela.
-- **Densità**: spaziatura mediana 0.0096 sugli oggetti contro 0.0103 su
-  tutta la scena.
-- `generate_point_cloud` è **identica al bit** a prima della
-  ristrutturazione, quindi tutti i numeri delle sezioni precedenti restano
-  validi.
-
-## Regione cambiata
-
-> **Superata** dalla scena prima e dopo il cambiamento. `change_region.py`
-> non è più usato da nessun modulo; resta descritto qui finché il file
-> esiste.
-
-Implementata in `change_region.py`, separata dal generatore. Lo stato viene
-assegnato **dopo** la generazione e **a caso**, come nel MATLAB dove
-`create_change_cluster` è un file distinto da `create_splats`. Il vantaggio
-della separazione è che la stessa scena si riusa con cambiamenti diversi
-muovendo solo il seed della regione, e i due seed sono indipendenti.
-
-La regione è una **palla geodetica** su un grafo dei k vicini pesato con la
-distanza euclidea: si estrae un punto seme a caso e si marcano tutti i punti
-entro `reach` da esso, misurando la distanza lungo la superficie e non
-attraverso lo spazio vuoto.
-
-$$\text{reach} = \text{extent} \cdot \max_i |x_i - \bar{x}|$$
-
-Il raggio della nuvola come riferimento serve perché la dimensione di una
-regione non dipenda dalla scala a cui la scena è stata generata.
-
-Con più regioni, un seme candidato viene rifiutato se le regioni già piazzate
-lo raggiungono entro `SEPARATION` volte il reach, altrimenti due regioni si
-fondono e ne ottieni meno di quante chieste — lo stesso vincolo di distanza
-minima fra i centri che c'è in `create_change_cluster`.
-
-### Perché la geodetica, e perché la motivazione ovvia è sbagliata
-
-La motivazione naturale sarebbe: su una superficie con una fessura le due
-pareti sono spazialmente vicine ma lontane lungo la superficie, quindi una
-palla euclidea prende due lembi staccati e produce una Ω con una struttura di
-occlusione assurda. **Misurato, non succede.** Confrontando le due metriche a
-parità di seme e di raggio su 24 configurazioni (`fill` da 0.10 a 0.30,
-`decay` da 1.0 a 1.6, 12 semi ciascuna):
-
-| | geodetica | euclidea |
-|---|---|---|
-| punti inclusi in più dall'euclidea | — | 12–20% |
-| di cui oltre 2× reach lungo la superficie | — | 12 su ~9000 |
-| componenti connesse della regione | 1 sempre (20 semi) | max 2, una volta |
-
-I punti che solo l'euclidea include stanno a distanza geodetica 1.0–1.3 volte
-il reach: sono un bordo, non un lembo lontano. La differenza fra le due
-metriche è che la palla euclidea sborda un po' oltre il confine dove la
-superficie curva, niente di topologico.
-
-La ragione per cui la geodetica resta la scelta è più modesta: **garantisce**
-una regione connessa sulla superficie, mentre l'euclidea si è spezzata in due
-componenti in un caso su 24. Per una tesi in cui Ω deve essere una regione
-cambiata ben definita, una garanzia vale le trenta righe in più. In aggiunta,
-il grafo kNN non è infrastruttura sprecata: serve comunque per stimare le
-normali con una PCA locale quando arriverà il modello di sensore.
-
-Se in futuro il costo del grafo diventasse un problema, passare all'euclidea
-è un cambio di due righe e sposta il 15% dei punti al bordo della regione.
-
-### Costanti
-
-| costante | valore | ruolo |
-|---|---|---|
-| `NEIGHBOURS` | 10 | Vicini per punto nel grafo su cui corre la geodetica. |
-| `SEPARATION` | 2.0 | Distanza minima fra semi, in unità di reach. |
-| `ATTEMPTS` | 200 | Candidati estratti prima di rinunciare a una regione. |
-
-Nota d'uso: `extent` è un raggio, non una frazione di punti. Su una nuvola di
-20000 punti a `fill=0.30`, `extent=0.25` marca circa il 2% dei punti e
-`extent=0.15` circa lo 0.7%, perché l'area di una calotta di raggio
-geodetico r cresce come r² mentre l'area totale della superficie è molto
-maggiore. Il MATLAB parametrizzava invece per numero di punti (`n_min`,
-`n_max`): se in fase di esperimenti ti serve controllare la frazione di
-scena cambiata piuttosto che la dimensione fisica del cambiamento, conviene
-aggiungere quella modalità.
+- **Densità**: spaziatura mediana 0.0117 sugli oggetti contro 0.0101 su
+  tutta la scena. Gli oggetti escono circa il 15% più radi dello sfondo,
+  mentre col generatore precedente erano il 7% più fitti. La causa non è
+  stata indagata: il numero di punti di un oggetto si fissa da un'area
+  stimata su un primo campione, ed è il primo candidato da controllare.
 
 ## Locus delle camere
 
@@ -484,7 +507,7 @@ l'uniformità si conserva dentro la fascia:
 `detection_sweep.py` simula la passata economica che precede la
 pianificazione: poche pose, distribuite il più lontano possibile, e la parte
 del cambiamento che vedono davvero. Quella è la regione cambiata **nota** al
-pianificatore; la regione generata da `change_region.py` diventa il **ground
+pianificatore; il cambiamento vero della coppia di scene è il **ground
 truth**. La differenza fra le due è il cambiamento che lo sweep non ha visto,
 cioè ciò che l'esplorazione deve ancora trovare. È il primo pezzo del modello
 di acquisizione: rende Ω stimata invece che assunta.
@@ -496,9 +519,8 @@ copertura vera è un problema di max-coverage sulla matrice di visibilità,
 risolvibile con il greedy a garanzia $(1 - 1/e)$, ma va calcolata su una
 geometria: sulla nuvola vera sarebbe barare, perché userebbe informazione
 che lo sweep non ha. La versione legittima la calcolerebbe sul modello
-obsoleto, che è noto — ma nel simulatore attuale vecchio e nuovo hanno la
-stessa geometria, e il cambiamento è solo un'etichetta sui punti. Finché è
-così, la dispersione geometrica è la scelta onesta: non guarda la scena.
+obsoleto, che è noto. Non è implementata: la dispersione geometrica è la
+scelta più semplice che non guarda la scena, e resta un confronto da fare.
 
 ### Farthest point sampling sul locus esistente
 
@@ -545,15 +567,6 @@ Riserva dichiarata: nella realtà un punto visto non basta per una detection.
 Il render-and-compare deve produrre un residuo sopra il rumore, quindi serve
 vedere abbastanza della regione. Per ora è ignorato.
 
-### Le pose ammissibili, superate dal pianificatore
-
-`feasible_cameras` teneva le pose che vedono almeno `min_points` aggiunte
-note, sugli occlusori creduti. Era un filtro al posto di un pianificatore, e
-ora che il pianificatore c'è non è più usata: il pianificatore guarda tutte le
-pose non ancora prese e le ordina per guadagno di informazione. Quando la
-soglia filtrava ancora, sulla scena etichettata con sweep rado toglieva 10
-pose su 94 che guardavano solo cambiamento mai rilevato.
-
 ### Le pose già prese: $F_0$ ed esclusione esplicita
 
 Le pose già acquisite contano due volte. Primo, ciò che hanno misurato entra
@@ -571,35 +584,34 @@ rifare viste che ha già.
 
 ### Cosa vede lo sweep
 
-Cambiamento misto — 2 aggiunti, 1 rimosso, 1 spostato — con 3003 punti
-aggiunti e 1938 rimossi:
+Cambiamento misto — 2 aggiunti, 1 rimosso, 1 spostato, sfondo di 20000 punti
+— con 3020 punti aggiunti e 2060 rimossi:
 
 | $k$ | aggiunti visti | rimossi visti oltre |
 |---|---|---|
-| 1 | 25.3% | 66.6% |
-| 2 | 25.4% | 75.7% |
-| 4 | 71.2% | 80.0% |
-| 6 | 81.1% | 85.1% |
-| 10 | 93.0% | 85.9% |
+| 1 | 50.9% | 70.3% |
+| 2 | 67.4% | 74.3% |
+| 4 | 83.0% | 80.7% |
+| 6 | 90.1% | 84.3% |
+| 10 | 97.6% | 85.0% |
 
-**Le rimozioni si confermano con poche viste, le aggiunte no.** Tolto un
+**Con poche viste le rimozioni si confermano prima delle aggiunte.** Tolto un
 oggetto, *tutti* i suoi punti lungo il raggio — davanti e dietro — sono
-spazio vuoto, e una vista sola li attraversa tutti. Un'aggiunta invece la
-si ricostruisce una faccia alla volta. È un'asimmetria che il pianificatore
-dovrà rispettare. La quota di rimossi che resta mai confermata, circa il
-14%, è in buona parte sfondo coperto dagli oggetti nuovi, che non si può
-vedere attraverso un oggetto.
+spazio vuoto, e una vista sola li attraversa tutti; un'aggiunta invece la si
+ricostruisce una faccia alla volta. Con una camera sola si conferma il 70%
+delle rimozioni e si vede il 51% delle aggiunte. Con più viste le aggiunte
+raggiungono e superano le rimozioni, che si fermano attorno all'85%: la
+parte mai confermata è in buona parte sfondo coperto dagli oggetti nuovi, e
+attraverso un oggetto non si può vedere.
 
-La seconda camera del farthest point sampling non aggiunge quasi nulla
-(25.3% → 25.4%). Il motivo è una proprietà del farthest point sampling su una
-banda: partendo dalla camera più alta, le successive sono le più lontane, e
-su una calotta i punti più lontani fra loro stanno sul **cerchio di bordo**,
-che è il più largo. Con la banda da −10° a 85° le prime quattro camere hanno
+Una proprietà del farthest point sampling su una banda da tenere presente:
+partendo dalla camera più alta, le successive sono le più lontane, e su una
+calotta i punti più lontani fra loro stanno sul **cerchio di bordo**, che è
+il più largo. Con la banda da −10° a 85° le prime quattro camere hanno
 elevazione 82.4°, −9.7°, −5.8°, −9.2°: tre su quattro guardano la scena di
-taglio dal bordo basso, da dove le superfici rivolte in alto su cui poggiano
-gli oggetti si vedono male. Lo sweep è quindi disperso sul locus ma non nelle
-direzioni di vista che contano; è un argomento per la copertura sul modello
-obsoleto invece della sola dispersione, quando ci sarà.
+taglio dal bordo basso. Lo sweep è disperso sul locus ma non nelle direzioni
+di vista; è un argomento per la copertura sul modello obsoleto invece della
+sola dispersione, quando ci sarà.
 
 ## Conoscenza del sistema e nuvola unita
 
@@ -655,21 +667,20 @@ aggiunti (`occluding`), non i rimossi confermati.
 
 Le occlusioni si calcolano sugli **occlusori creduti**, non sulla scena nuova
 vera, che il sistema non ha. Dove il cambiamento non è osservato il modello
-creduto sbaglia in due direzioni opposte: un oggetto tolto e non confermato
-continua a occludere, un pezzo aggiunto e non visto non occlude.
+creduto sbaglia in due direzioni opposte, e per costruzione solo in queste
+due:
 
-Sulla scena mista (seed 3) dopo uno sweep di 4 camere restano **388** punti
-rimossi creduti presenti e **864** aggiunti ignoti. L'effetto sulla
-pianificazione:
+- un oggetto tolto e non confermato **continua a occludere**, quindi il
+  pianificatore crede di vedere **meno** di quanto vedrebbe;
+- un pezzo aggiunto e non ancora visto **non occlude**, quindi crede di
+  vedere **di più**.
 
-| scena | ammissibili, occlusori creduti | con geometria vera | errore sui punti noti visti per camera |
-|---|---|---|---|
-| seed 3, misto, 20000 punti | 119 | 120 | medio 33.6, massimo 189 |
-| seed 0, `run_scene`, 2000 punti | **96** | 103 | medio 8.6, massimo 33 |
-
-L'errore va soprattutto in una direzione: il pianificatore **sovrastima** ciò
-che una camera vede, fino a 189 punti in più, perché le parti aggiunte che non
-ha ancora visto mancano come occlusori e crede di vedere attraverso di esse.
+Sulla scena mista (seed 3, 20000 punti) dopo uno sweep di 4 camere restano
+**397** punti rimossi creduti presenti e **514** aggiunti ignoti. Per ogni
+camera del locus, il numero di punti aggiunti noti che il pianificatore crede
+di vedere contro quelli che vedrebbe davvero: errore medio 27.1 punti, fino a
+**53 in eccesso** e fino a **106 in difetto**. Su questa scena prevale la
+sottostima, cioè l'effetto dei rimossi non confermati.
 
 ## Modello di misura RGB
 
@@ -726,51 +737,58 @@ ancora.
 
 La prima versione sceglieva `k` viste alla volta con costo pari al loro
 numero, a orizzonte recedente. È stata sostituita dal pianificatore a
-**tratti**, sotto; i risultati delle due tabelle seguenti sono di quella
-prima versione.
+**tratti** della sezione sulla traiettoria, e i suoi risultati non sono più
+riportati: erano misurati su codice e generatore che non esistono più.
 
 ### Cosa fa, sulla scena di `run_scene`
 
-| round | viste | aggiunti noti | rimossi confermati | deviazione peggiore mediana |
-|---|---|---|---|---|
-| sweep | 0, 1, 7, 119 | 244 / 258 | 103 / 207 | 1.0000 R |
-| 1 | 88, 25 | 256 / 258 | 122 / 207 | 0.0025 R |
-| 2 | 104, 106 | 257 / 258 | 135 / 207 | 0.0019 R |
-| 3 | 96, 93 | 257 / 258 | 138 / 207 | 0.0017 R |
-| 4 | 112, 38 | 257 / 258 | 142 / 207 | 0.0016 R |
+Sfondo di 2000 punti, un oggetto aggiunto, uno rimosso, uno spostato; sweep di
+4 camere, poi 40 s e 12 immagini, velocità 1 e 2 s per foto:
 
-Dopo lo sweep la deviazione mediana lungo la direzione peggiore è il prior:
-la maggior parte dei punti è stata vista da una vista sola e non ha
+| tratto | immagini | aggiunti noti | rimossi confermati | deviazione peggiore mediana |
+|---|---|---|---|---|
+| sweep | 119, 0, 7, 1 | 170 / 179 | 191 / 255 | 0.0034 R |
+| 1 | 56 | 179 / 179 | 199 / 255 | 0.0031 R |
+| 2 | 98 | 179 / 179 | 199 / 255 | 0.0023 R |
+| 6 | 69 | 179 / 179 | 203 / 255 | 0.0019 R |
+| 10 | 103, 111 | 179 / 179 | 207 / 255 | 0.0014 R |
+| 11 | 114 | 179 / 179 | 207 / 255 | 0.0013 R |
+
+Undici tratti, 36.8 s e tutte le 12 immagini; uno solo usa una foto di
+passaggio. Il primo tratto completa la scoperta delle aggiunte, e da lì il
+pianificatore affina la triangolazione, dimezzando la deviazione. Restano 48
+punti rimossi creduti presenti: il pianificatore non ha le rimozioni come
+bersaglio, e le conferma solo quando capita.
+
+**Quanto triangola lo sweep dipende dalla scena.** Qui dopo le 4 viste dello
+sweep la deviazione mediana è già 0.0034 R, cioè la maggior parte dei punti è
+vista da due direzioni. Sulla scena mista sotto invece resta il prior,
+1.0 R: la maggior parte dei punti è vista da una vista sola e non ha
 profondità, perché le camere del farthest point sampling sono troppo lontane
-fra loro per sovrapporsi. Il primo round la porta a 0.0025 R: il
-pianificatore sceglie subito viste che triangolano. È il comportamento
-previsto per una camera RGB, e conferma che uno sweep RGB andrebbe fatto a
-coppie di viste vicine.
+fra loro per sovrapporsi. Uno sweep a coppie di viste vicine renderebbe il
+risultato meno dipendente dalla scena.
 
 ### Contro le baseline
 
-Scena mista (seed 3, 8000 punti di sfondo, 1133 aggiunti veri), sweep di 4,
-poi 8 viste a orizzonte 2, misurato sulla verità:
+Scena mista (seed 3, sfondo di 8000 punti, 1188 aggiunti veri), sweep di 4,
+poi 40 s e 12 immagini, velocità 1 e 2 s per foto. Le baseline si muovono con
+lo stesso modello di moto e fotografano solo la sosta: la **dispersione**
+sceglie la posa più lontana da quelle già prese, la **casuale** una posa
+qualsiasi. Tutto misurato sulla verità:
 
-| politica | cambiamento noto | deviazione peggiore mediana | ben triangolati (< 1% R) |
-|---|---|---|---|
-| solo sweep | 68.7% | 1.0000 R | 16.4% |
-| **greedy** | **98.4%** | **0.0021 R** | **88.1%** |
-| dispersione (FPS che continua) | 94.9% | 0.0023 R | 80.4% |
-| casuale, media di 3 | 94.1% | 0.0026 R | 78.3% |
+| politica | cambiamento noto | deviazione peggiore mediana | ben triangolati (< 1% R) | tempo | immagini |
+|---|---|---|---|---|---|
+| solo sweep | 82.2% | 1.0000 R | 29.8% | — | — |
+| **greedy** | **98.8%** | **0.0019 R** | **93.0%** | 37.6 s | 9 |
+| casuale, media di 3 | 95.3% | 0.0027 R | 84.0% | | |
+| dispersione | 95.1% | 0.0028 R | 66.0% | 36.9 s | 5 |
 
 Il greedy vince su tutte e tre le misure, anche sulla scoperta che non
-cerca. Ma i margini sono modesti — otto punti di ben triangolati sulla
-dispersione — ed è **una scena sola**: è un primo segnale, non un risultato.
-Per scriverlo servono molte scene, più budget, e intervalli di confidenza.
-
-### Costo
-
-Questi tempi sono di prima dell'ottimizzazione del depth buffer: il greedy
-impiegava 96 s contro i 2 s della dispersione, quasi tutti nella visibilità.
-Restano due ottimizzazioni possibili se servirà: la visibilità cambia poco
-fra un round e l'altro, quindi si potrebbe riusare, e il greedy pigro
-sfrutta la submodularità per non ricalcolare tutti i guadagni.
+cerca: nove punti di ben triangolati sul casuale, ventisette sulla
+dispersione. La dispersione paga il modello di costo: le pose più lontane
+costano molto viaggio, e nello stesso tempo scatta solo 5 immagini. Il greedy
+ne usa 9 su 12 perché finisce prima il tempo. È ancora **una scena sola**:
+per scriverlo come risultato servono molte scene e intervalli di confidenza.
 
 ## Traiettoria
 
@@ -822,113 +840,67 @@ Il braccio parte dall'ultima posa dello sweep; lo sweep non consuma budget.
 
 ### Cosa fa
 
-**Con il costo in secondi** (prima versione), sulla scena di `run_scene`:
-dodici tratti da una foto sola, ciascuno al vicino più prossimo sul reticolo
-— circa 14°, meno di un secondo di viaggio, zero pose intermedie.
+Tre regimi di budget, velocità 1 e 2 s per foto:
 
-**Con il costo normalizzato**, tre regimi di budget, velocità 1 e 2 s per
-foto:
+| scena | regime | tratti | foto per tratto | viaggio medio | tempo | immagini | deviazione mediana | ben triangolati |
+|---|---|---|---|---|---|---|---|---|
+| `run_scene`, 2000 punti | equilibrato, 40 s e 12 immagini | 11 | 1.09 | 1.16 | 36.8 s | 12 | 0.0013 R | 100% |
+| | tempo abbondante, 200 s e 12 | 12 | 1.00 | 2.09 | 49.1 s | 12 | 0.0012 R | 100% |
+| | immagini abbondanti, 40 s e 50 | 12 | 1.08 | 0.97 | 37.7 s | 13 | 0.0013 R | 99.4% |
+| mista, 8000 punti | equilibrato | 8 | 1.12 | 2.46 | 37.6 s | 9 | 0.0019 R | 93.0% |
+| | **tempo abbondante** | 11 | 1.09 | **3.63** | 63.9 s | 12 | 0.0016 R | **97.3%** |
+| | immagini abbondanti | 8 | 1.25 | 2.22 | 37.7 s | 10 | 0.0018 R | 94.6% |
 
-| scena | regime | tratti | foto per tratto | viaggio medio | ben triangolati |
-|---|---|---|---|---|---|
-| `run_scene`, 2000 punti | equilibrato, 40 s e 12 immagini | 11 | 1.00 | 1.41 | 99.2% |
-| | tempo abbondante, 200 s e 12 | 12 | 1.00 | 2.20 | 99.2% |
-| | immagini abbondanti, 40 s e 50 | 13 | 1.00 | 1.07 | 99.2% |
-| mista, 8000 punti | equilibrato | 10 | 1.00 | 1.77 | 85.2% |
-| | **tempo abbondante** | 12 | 1.00 | **3.33** | **90.8%** |
-| | immagini abbondanti | 11 | 1.00 | 1.44 | 84.0% |
+La normalizzazione fa ciò che deve: col tempo abbondante il pianificatore
+viaggia di più, perché il viaggio costa poco, e sulla scena mista triangola
+meglio. Con 200 s non li usa tutti: finiscono prima le immagini. Sulla scena
+di `run_scene` i regimi quasi non si distinguono, perché è già satura: tutto
+il cambiamento è ben triangolato in ogni caso.
 
-Sulle soste la normalizzazione fa ciò che deve: col tempo abbondante il
-pianificatore viaggia il doppio, perché il viaggio costa poco, e triangola
-meglio. Ma in tutti i casi fa **una foto per tratto**.
+### Perché le foto di passaggio si usano poco
 
-### Perché le foto di passaggio non si usano
-
-Non è un bug. Valutando ogni sosta con e senza le foto di passaggio, sulla
-scena mista: la sosta scelta rende 4060, una foto di passaggio in media 1250,
-un terzo. La sosta è la posa **migliore** fra 115, quelle di passaggio sono
-pose qualsiasi che capitano sulla strada. Finché una foto al volo costa
-quanto una sosta, spendere un'immagine lì abbassa l'efficienza, e la regola
-la scarta correttamente. La prima ipotesi — che il pianificatore strisciasse
-perché il vicino è il modo più economico di fare una foto — valeva solo per
-la scena di `run_scene`: su quella mista le soste migliori sono tratti lunghi
-4–5 unità.
+Fra 1.00 e 1.25 foto per tratto: quasi sempre solo la sosta. Non è un bug.
+La sosta è la posa **migliore** fra tutte quelle raggiungibili, mentre quelle
+di passaggio sono pose qualsiasi che capitano sulla strada. Finché una foto
+al volo costa quanto una sosta, spendere un'immagine lì di solito abbassa
+l'efficienza del tratto, e la regola la scarta correttamente. La prima
+ipotesi, che il pianificatore facesse tratti brevi perché il vicino è il modo
+più economico di fare una foto, è smentita dai numeri: sulla scena mista il
+viaggio medio è 2.2–3.6 unità, cioè soste lontane.
 
 ### Sosta e foto al volo
 
 Il pezzo che manca è nel modello: la camera **si ferma o rallenta**, e
 rallentare costa meno che fermarsi. Prova con un pianificatore a parte,
-identico tranne che per due tempi distinti — 2 s la sosta, variabile la foto
+identico tranne che per due tempi distinti: 2 s la sosta, variabile la foto
 al volo. A 2 s riproduce esattamente i numeri del codice vero, quindi misura
-la stessa cosa.
+la stessa cosa. Scena mista:
 
 | regime | foto al volo | foto per tratto | immagini | deviazione mediana | ben triangolati |
 |---|---|---|---|---|---|
-| equilibrato | 2.0 s | 1.00 | 10 | 0.0019 R | 85.2% |
-| | 0.5 s | 1.33 | 12 | 0.0017 R | 84.7% |
-| | 0.2 s | 1.22 | 11 | 0.0020 R | 92.6% |
-| immagini abbondanti | 2.0 s | 1.00 | 11 | 0.0017 R | 84.0% |
-| | 0.5 s | 2.00 | 16 | 0.0016 R | 88.9% |
-| | **0.2 s** | **3.00** | **21** | **0.0013 R** | **91.4%** |
+| equilibrato | 2.0 s | 1.12 | 9 | 0.0019 R | 93.0% |
+| | 0.5 s | 1.50 | 12 | 0.0017 R | 95.8% |
+| | 0.2 s | 1.50 | 12 | 0.0017 R | 95.8% |
+| immagini abbondanti | 2.0 s | 1.25 | 10 | 0.0018 R | 94.6% |
+| | 0.5 s | 2.57 | 18 | 0.0015 R | 95.3% |
+| | **0.2 s** | **3.00** | **24** | **0.0013 R** | **98.1%** |
 
-Quando il limite è il **tempo**, le foto al volo pagano chiaramente: tre per
-tratto, il doppio delle immagini nello stesso tempo, dall'84% al 91% di ben
-triangolati. Quando il limite sono le **immagini** cambia poco e in modo non
-netto, com'è ragionevole: se le immagini sono contate conviene spenderle
-sulle pose migliori. Una scena sola: è un'indicazione. I due tempi distinti
-non sono ancora nel codice.
+Quando il limite è il **tempo** le foto al volo pagano chiaramente: tre per
+tratto, più del doppio delle immagini nello stesso tempo, dal 94.6% al 98.1%
+di ben triangolati. Nel regime equilibrato aiutano finché ci sono immagini:
+a 0.5 s il budget di 12 è già esaurito, e scendere a 0.2 s non cambia nulla.
+Una scena sola: è un'indicazione. I due tempi distinti non sono ancora nel
+codice.
 
 ### Costo di calcolo
 
-Un tratto costa 0.6 s sulla scena di `run_scene` (2000 punti) e 1.3 s su una
-da 20000; una missione di dodici tratti 8 s. Prima dell'ottimizzazione del
-depth buffer, descritta nel filtro di visibilità, la stessa missione
-impiegava tre minuti, con esattamente gli stessi tratti. Il grosso resta la
-visibilità: a ogni tratto si ricalcola quella di tutte le 120 pose sugli
-occlusori creduti.
-
-## Visualizzazione
-
-`plot_scene.py` disegna scena, regione cambiata e locus. Restituisce la
-figura senza mostrarla, così il chiamante decide: `run_scene.py` fa
-`plt.show()`, e un domani `make_figures.py` può passarla a `viz.save_fig()`
-per farla finire in `5_report/figures/auto/` e renderla rigenerabile da
-`rebuild.sh`. Se il disegno stesse dentro lo script sarebbe da
-copiaincollare, e da quel momento avresti due versioni della stessa figura
-che divergono.
-
-### Perché i frustum e non punti con una freccia
-
-Un frustum mostra tre cose in una: dove sta la camera, dove guarda, e quanto
-campo vede. I punti con una freccia mostrano le prime due, e il campo di
-vista — che è ciò che determina quali parti della scena una posa può
-osservare — resta invisibile.
-
-I corner si ottengono retroproiettando gli angoli dell'immagine alla
-profondità del frustum,
-
-$$x_{\text{cam}} = \left(\frac{u - c_x}{f_x} d, \; \frac{v - c_y}{f_y} d, \; d\right)$$
-
-e portandoli nel mondo con $x_{\text{world}} = R^\top x_{\text{cam}} + c$.
-La dimensione dell'immagine si assume pari al doppio del punto principale in
-entrambe le direzioni, cosa esatta per una calibrazione centrata.
-
-Verifica: i quattro corner di ogni frustum, riproiettati attraverso `K`,
-cadono esattamente sugli angoli dell'immagine — (0,0), (500,0), (500,500),
-(0,500) con `resolution=500`. Valida insieme la geometria del frustum e la
-trasformazione camera-mondo.
-
-Nelle tre proiezioni ortogonali le camere sono disegnate come soli centri:
-i frustum coprirebbero proprio la struttura che le proiezioni servono a
-mostrare. In compenso è lì che si vede la banda di elevazione, come una
-calotta vuota sotto la scena.
-
-### Limite noto
-
-Con il locus nella stessa figura, i limiti degli assi si allargano al raggio
-del locus e l'oggetto diventa piccolo nella vista 3D. È il prezzo di
-mostrare entrambi nello stesso riquadro: le proiezioni restano leggibili,
-ed è lì che si giudica la forma.
+La missione di `run_scene`, sweep e undici tratti, impiega circa 9 s. Prima
+dell'ottimizzazione del depth buffer, descritta nel filtro di visibilità, una
+missione simile impiegava tre minuti, con esattamente gli stessi tratti. Il
+grosso resta la visibilità: a ogni tratto si ricalcola quella di tutte le 120
+pose sugli occlusori creduti. Se servirà, la si può riusare fra un tratto e
+l'altro, perché cambia poco, e il greedy pigro può sfruttare la
+submodularità per non ricalcolare tutti i guadagni.
 
 ## Filtro di visibilità
 
@@ -979,47 +951,60 @@ esiste ed è esatta — l'oggetto è l'insieme di livello di un campo analitico,
 quindi si marcia lungo il raggio dalla camera a ogni punto e si guarda se
 entra nell'oggetto.
 
-| footprint | margin | accordo | falsi visibili | falsi occlusi |
-|---|---|---|---|---|
-| 0.35 | 0.5 | 0.893 | 9.96% | 0.78% |
-| 0.50 | 0.5 | 0.952 | 3.60% | 1.22% |
-| **0.70** | **1.0** | **0.965** | **2.42%** | **1.08%** |
-| 1.00 | 1.0 | 0.965 | 1.75% | 1.75% |
-| 1.40 | 0.5 | 0.921 | 0.38% | 7.54% |
+Griglia su 3 scene (seed 3, 5, 11, 8000 punti) e 4 camere della banda,
+accordo medio:
 
-Il compromesso si legge bene: impronta troppo piccola e lo sfondo trapela
-(falsi visibili al 10%), troppo grande e i punti si occludono a vicenda
-(falsi occlusi al 7.5%). L'ottimo è piatto fra 0.5 e 1.0, quindi la scelta è
-robusta e non su misura.
+| footprint | margin 0.5 | margin 1.0 | margin 2.0 |
+|---|---|---|---|
+| 0.35 | 0.847 | 0.833 | 0.786 |
+| 0.50 | 0.925 | 0.923 | 0.877 |
+| **0.70** | 0.914 | **0.939** | 0.902 |
+| 1.00 | 0.834 | 0.919 | 0.900 |
+| 1.40 | 0.748 | 0.875 | 0.889 |
+
+All'ottimo, 0.7 e 1.0, i falsi visibili sono il 2.77% e i falsi occlusi il
+3.28%. Il compromesso si legge bene: impronta troppo piccola e lo sfondo
+trapela (a 0.35 e margin 2.0 i falsi visibili sono il 20.9%), troppo grande
+e i punti si occludono a vicenda (a 1.4 e margin 0.5 i falsi occlusi sono il
+25.1%). Il margin sposta l'errore da un tipo all'altro nello stesso modo.
+L'ottimo è piatto fra 0.5 e 1.0 di impronta, quindi la scelta è robusta e
+non su misura. È anche lo stesso ottimo trovato con il generatore precedente,
+su scene di forma diversa.
+
+**Quanto dipende dalla forma.** Con impronta e margin fissi, al variare della
+regolarità $\nu$ del campo: 84.2% a $\nu$ = 0.5, 91.0% a 1.5, 93.9% a 2.5,
+94.3% a 5.0. Una superficie più ruvida ha più bordi e più pieghe, dove il
+disco di un campione sborda oltre la silhouette.
 
 ### La taratura trasferisce?
 
-Congelati i due valori, riverificati su scene **mai usate per tararli** e su
-camere diverse:
+Congelati i due valori, riverificati su una scena **mai usata per tararli**
+(seed 7) e su 3 camere, variando un parametro alla volta rispetto a 8000
+punti, fill 0.30, lunghezza 0.3:
 
-| punti | fill | decay | seed | accordo | falsi visibili | falsi occlusi |
-|---|---|---|---|---|---|---|
-| 20000 | 0.30 | 1.6 | 3 | 0.983 | 0.47% | 1.22% |
-| 20000 | 0.15 | 1.3 | 5 | 0.988 | 0.67% | 0.55% |
-| 20000 | 0.45 | 2.0 | 11 | 0.989 | 0.55% | 0.58% |
-| **6000** | 0.30 | 1.6 | 7 | **0.960** | **1.73%** | **2.29%** |
-| 50000 | 0.30 | 1.6 | 2 | 0.987 | 0.86% | 0.42% |
+| variazione | accordo | falsi visibili | falsi occlusi |
+|---|---|---|---|
+| fill 0.15 | 0.926 | 3.48% | 3.90% |
+| fill 0.45 | 0.913 | 4.01% | 4.72% |
+| lunghezza 0.2 | 0.890 | 4.20% | 6.77% |
+| lunghezza 0.4 | 0.941 | 2.73% | 3.22% |
+| **3000 punti** | **0.901** | **4.04%** | **5.83%** |
+| 30000 punti | 0.957 | 2.19% | 2.14% |
 
-Due letture. La prima: `fill` da 0.15 a 0.45 e `decay` da 1.3 a 2.0 non
-spostano nulla, quindi la taratura non è su misura per una forma.
+Due letture. La prima: `fill` quasi non sposta nulla, mentre la lunghezza di
+correlazione sì, per la stessa ragione di $\nu$ sopra: una lunghezza minore
+vuol dire una superficie più increspata, con più bordi.
 
-La seconda conta di più: **l'unica variabile che muove l'errore è la
-densità**. La nuvola rada a 6000 punti è il caso peggiore, con entrambi i
-tipi di errore circa raddoppiati, mentre da 20000 a 50000 non cambia niente.
-È il comportamento atteso — meno punti, spaziatura maggiore, impronta più
+La seconda: **la densità muove l'errore**, ed entrambi i tipi insieme. A
+3000 punti l'accordo scende al 90.1%, a 30000 sale al 95.7%. È il
+comportamento atteso — meno punti, spaziatura maggiore, impronta più
 grossolana — ed è anche la ragione per cui ci si può fidare sul reale: una
 scansione vera è rada proprio dove il range è lungo e l'incidenza radente, ed
-è lì che il filtro degrada per primo. Su un fattore 8 di densità l'accordo
-scende solo dal 98.7% al 96.0%.
+è lì che il filtro degrada per primo, senza crollare.
 
-Attenzione a non confrontare questi numeri con il 96.5% della tabella di
-taratura: sono camere diverse, e la varianza fra pose è dello stesso ordine
-di quella fra scene.
+Attenzione a non confrontare questi numeri al decimale con il 93.9% della
+taratura: sono scene e camere diverse, e la varianza fra pose è dello stesso
+ordine delle differenze in tabella.
 
 ### Un errore che il metodo ha smascherato da solo
 
@@ -1046,36 +1031,39 @@ applicate alla nuvola e rimisurate contro la verità esatta. La verità viene
 ricalcolata sulle posizioni **perturbate**: si marcia dalla camera al punto
 dov'è finito, non a dov'era.
 
-Rumore gaussiano isotropo, con σ in unità di spaziatura locale:
+Scena di taratura seed 3, 8000 punti, 2 camere. Rumore gaussiano isotropo,
+con σ in unità di spaziatura mediana:
 
 | σ | accordo | falsi visibili | falsi occlusi |
 |---|---|---|---|
-| 0.00 | 0.973 | 0.63% | 2.05% |
-| 0.25 | 0.964 | 0.76% | 2.82% |
-| 0.50 | 0.938 | 1.09% | 5.12% |
-| 1.00 | 0.908 | 1.92% | 7.25% |
+| 0.00 | 0.944 | 2.76% | 2.88% |
+| 0.25 | 0.919 | 2.90% | 5.24% |
+| 0.50 | 0.849 | 3.24% | 11.84% |
+| 1.00 | 0.775 | 2.84% | 19.70% |
 
 Outlier sparsi uniformemente nel volume, come frazione dei punti aggiunta
 alla nuvola (quindi il totale cresce, e gli spuri sono valutati anch'essi):
 
 | quota | accordo | falsi visibili | falsi occlusi |
 |---|---|---|---|
-| 0.0% | 0.973 | 0.63% | 2.05% |
-| 0.2% | 0.972 | 0.64% | 2.17% |
-| 1.0% | 0.935 | 0.62% | 5.86% |
-| 3.0% | 0.938 | 0.58% | 5.60% |
+| 0.0% | 0.944 | 2.76% | 2.88% |
+| 0.2% | 0.924 | 2.74% | 4.92% |
+| 1.0% | 0.883 | 2.51% | 9.18% |
+| 3.0% | 0.826 | 2.40% | 14.99% |
 
-**Degrada con grazia.** Nessun crollo: rumore pari a un quarto della
-spaziatura costa un punto di accuratezza, e serve rumore pari all'intera
-distanza fra punti vicini per scendere al 91%. Gli outlier sotto lo 0.2%
-sono innocui; a partire dall'1% costano quattro punti, poi saturano.
+**Degrada senza crollare, ma non poco.** Rumore pari a un quarto della
+spaziatura costa due punti e mezzo di accordo; rumore pari all'intera
+distanza fra punti vicini lo porta al 77%. Anche lo 0.2% di outlier costa due
+punti, e l'1% sei.
 
-**Sbaglia sempre dalla parte giusta.** In entrambi i casi il danno è quasi
-tutto in falsi *occlusi*, mentre i falsi visibili restano sotto il 2%. Il
-filtro diventa conservativo, cioè dichiara non visto ciò che forse vedrebbe.
-Per la pianificazione di viste è il bias corretto: non si sostiene mai di
-aver osservato qualcosa che non è stato osservato, e l'informazione stimata
-è un limite inferiore.
+**Il danno va tutto dalla parte giusta.** Sulla nuvola pulita i due errori si
+equivalgono, circa il 3% ciascuno: il filtro **non** è conservativo di per
+sé. Ma tutto l'errore che le perturbazioni aggiungono è in falsi *occlusi*,
+mentre i falsi visibili restano fermi fra il 2.4% e il 3.2%. Sporcando la
+nuvola il filtro diventa conservativo, cioè dichiara non visto ciò che forse
+vedrebbe. Per la pianificazione di viste è il bias corretto: l'informazione
+stimata cala invece di gonfiarsi. Resta però un 3% di falsi visibili di
+base, che nessuna perturbazione crea e nessuna toglie.
 
 **Il meccanismo è lo stesso in tutti e tre i casi** — rada, rumorosa,
 sporca. Il rumore gonfia le distanze ai k vicini, quindi la spaziatura
@@ -1110,29 +1098,18 @@ le tarature sopra restano valide.
 
 Validato contro la verità esatta — marcia lungo il raggio nel campo della
 scena nuova, e controlla che fra camera e punto ci sia solo spazio libero —
-su 1757 punti rimossi e 6 camere: accordo **91.5%**, **falsi svuotati
-0.0%**, mancati 8.5%.
+su 1280 punti rimossi (due oggetti, 20000 punti) e 6 camere: accordo
+**88.7%**, **falsi svuotati 0.0%**, mancati 11.3%.
 
-Lo stesso bias conservativo della visibilità: non dice mai che qualcosa è
-sparito quando c'è ancora, e l'errore sta tutto nei mancati. Solo il 23% dei
-mancati sta a meno di due spaziature dalla superficie nuova, quindi non sono
-soprattutto punti che toccavano ciò che c'era dietro. La causa è
-l'**impronta**: i dischi della superficie in primo piano sbordano oltre la
-silhouette e coprono pixel da cui in realtà si vede oltre.
-
-| `FOOTPRINT` | accordo | falsi svuotati | mancati |
-|---|---|---|---|
-| 0.35 | 0.909 | 3.2% | 5.9% |
-| 0.50 | 0.913 | 0.1% | 8.6% |
-| 0.70 | 0.882 | 0.0% | 11.8% |
-| 1.00 | 0.845 | 0.0% | 15.5% |
-
-Per la rimozione l'ottimo sarebbe 0.5. Resta 0.7, lo stesso della
-visibilità: tre punti di accordo non valgono una seconda costante tarata su
-una scena sola, e a 0.7 i falsi svuotati sono zero, che è la proprietà che
-conta — un pianificatore che crede sparito qualcosa che c'è non ci
-guarderebbe più. (Questa tabella è della prima versione del posizionamento;
-l'accordo a 0.7 con quella attuale è il 91.5% sopra.)
+Qui sì il bias è conservativo anche sulla nuvola pulita: non dice mai che
+qualcosa è sparito quando c'è ancora, e l'errore sta tutto nei mancati. La
+causa è l'**impronta**: i dischi della superficie in primo piano sbordano
+oltre la silhouette e coprono pixel da cui in realtà si vede oltre. Con il
+generatore precedente un'impronta di 0.5 dava tre punti di accordo in più,
+al prezzo di qualche falso svuotato; resta 0.7, lo stesso della visibilità,
+perché una seconda costante tarata su una scena sola non li vale, e perché
+falsi svuotati a zero è la proprietà che conta — un pianificatore che crede
+sparito qualcosa che c'è non ci guarderebbe più.
 
 ### Il costo del depth buffer
 
@@ -1189,7 +1166,7 @@ venv lo eredita con `--system-site-packages`.
 | `MARGIN` | 1.0 | Tolleranza, in spessori di toppa. |
 | `NEAR` | 1e-6 | Profondità sotto cui il punto è dietro la camera. |
 
-### Visualizzatore interattivo
+## Visualizzazione
 
 `scene_viewer.py` logga su **rerun**, che mostra tutto in una finestra sola.
 Gli stadi sono passi di una **timeline** che si scorre ruotando liberamente:
@@ -1272,10 +1249,16 @@ codice dove non c'è un display.
 
 ## Limiti noti
 
-- **Manici veri, cioè buchi passanti, sono rari** ai parametri di default. Le
-  forme sono blob lobati con fessure profonde e a volte componenti staccate,
-  non oggetti topologicamente complessi. Si ottengono abbassando insieme
-  `fill` e `decay`, ma non sono garantiti a ogni seed.
+- **Manici veri, cioè buchi passanti, non sono controllati.** Le forme sono
+  blob lobati con fessure profonde e a volte due componenti, non oggetti
+  topologicamente complessi per costruzione. Una `length` minore e una
+  `smoothness` minore rendono la superficie più increspata e più ricca di
+  pieghe, ma quanti manici producano non è misurato.
+- **Il filtro di visibilità sbaglia di circa il 3% in entrambi i versi**
+  anche su una nuvola pulita, e peggiora su superfici più ruvide. HPR, che
+  si era provato prima, su queste superfici non regge: non va usato né come
+  filtro né come verità di riferimento, che è invece la marcia lungo il
+  raggio nel campo implicito.
 - **La detection è un proxy perfetto su ciò che si vede**: niente nuvola
   grezza, niente rumore di ricostruzione, niente canale fotometrico. È
   un'ipotesi di scope, da togliere quando si simulerà la detection vera.

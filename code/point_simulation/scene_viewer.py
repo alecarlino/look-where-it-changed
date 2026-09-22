@@ -43,9 +43,6 @@ for an application the first time it saw one, so an entity added or renamed
 later can stay missing from the side panel until the stored layout is reset
 by hand. Sending one makes the tree depend on this run only.
 
-This is for looking, not for publishing: plot_scene.py stays the way figures
-reach the report, because only matplotlib gives vector output.
-
 See notes.md for the conventions.
 '''
 

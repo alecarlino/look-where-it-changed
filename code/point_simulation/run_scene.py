@@ -31,8 +31,9 @@ from visibility_filter import describe_cloud
 
 n_points = 2000   # Points on the background surface
 radius = 1.00     # Maximum radius of the scene
-n_modes = 60      # Number of modes of the field
-decay = 1.60      # Spectral decay (complexity)
+n_modes = 256     # Random Fourier features of the field
+length = 0.30     # Feature size, over the scene radius
+smoothness = 2.5  # Matérn smoothness, lower is rougher
 fill = 0.30       # Fraction of the scene volume inside the background
 seed = 0          # Randomization seed of the background
 
@@ -69,7 +70,8 @@ calibration = np.array([
 
 # --- Build the scene -------------------------------------------------------
 
-scene = generate_scene_pair(n_points, radius, n_modes=n_modes, decay=decay,
+scene = generate_scene_pair(n_points, radius, n_modes=n_modes, length=length,
+                            smoothness=smoothness,
                             fill=fill, seed=seed, n_added=n_added,
                             n_removed=n_removed, n_moved=n_moved,
                             object_radius=object_radius,
@@ -106,7 +108,7 @@ while True:
 elevation = np.degrees(np.arcsin(cameras.centre[:, 2] / locus_radius))
 
 print(f"Scene: {n_points} background points, n_modes={n_modes}, "
-      f"decay={decay}, fill={fill}, seed={seed}")
+      f"length={length}, smoothness={smoothness}, fill={fill}, seed={seed}")
 print(f"  change:      {n_added} added, {n_removed} removed, {n_moved} moved")
 print(f"  old scene:   {len(scene.old)} points, {scene.removed.sum()} removed")
 print(f"  new scene:   {len(scene.new)} points, {scene.added.sum()} added")

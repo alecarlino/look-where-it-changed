@@ -145,39 +145,6 @@ def vacated_points(query: np.ndarray, query_geometry: CloudGeometry,
 
     return vacated
 
-def feasible_cameras(points: np.ndarray, geometry: CloudGeometry,
-                     cameras, target: np.ndarray,
-                     min_points: int = 1) -> np.ndarray:
-    """Mark the cameras that observe enough of the region of interest.
-
-    Args:
-        points: Point cloud of shape (n_points, 3).
-        geometry: Output of describe_cloud for the same cloud.
-        cameras: A CameraGrid.
-        target: Boolean mask (n_points,) of the points that matter, usually
-            the changed region.
-        min_points: How many of them a camera has to see to be kept.
-
-    Returns:
-        Boolean array (n_cameras,), True where the camera is worth using.
-    """
-
-    if target.shape != (len(points),):
-        raise ValueError(
-            f"target must have shape ({len(points)},), got {target.shape}"
-        )
-    if min_points < 1:
-        raise ValueError(f"min_points must be at least 1, got {min_points}")
-
-    seen = np.array([
-        visible_points(points, geometry, centre, rotation,
-                       cameras.calibration)[target]
-        for centre, rotation in zip(cameras.centre, cameras.rotation)
-    ])
-
-    return seen.sum(axis=1) >= min_points
-
-
 # --- Helper functions ------------------------------------------------------
 
 def _to_image(points: np.ndarray, geometry: CloudGeometry,

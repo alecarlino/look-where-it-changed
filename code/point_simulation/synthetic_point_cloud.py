@@ -7,36 +7,44 @@ Given the desired number of points and the maximum radius of the scene, it
 generates a random tridimensional point cloud lying on the surface of a
 procedurally generated object. Points lie on a surface to reproduce a depth
 sensor measurements.
-The object is an isosurface of a random scalar field, built as a sum of plane
-waves with random directions, frequencies and phases. Its shape is defined by
-the randomness of the field, while the spectral decay define the resolution.
-
-It also generates the same scene before and after a change, with objects
-added, removed or moved. Every part is a field shifted so that it is solid
-where positive, so a scene is the maximum of its parts and an object is added
-or removed by adding or dropping a term. A move is a removal at one pose plus
-an addition at another. The change is not labelled by hand but measured as
-the geometric difference of the two scenes, so that an object resting on a
-surface removes the surface it covers, and taking it away reveals it.
-
-See notes.md for the formulation and the checks.
+The object is the excursion set of a Gaussian process with a Matérn
+covariance and a mean falling towards the border, the region where a sample
+of it exceeds a level, cut to a ball. The falling mean keeps the object
+inside the ball, which then only closes the rare part that reaches it.
+The sample is drawn with random Fourier features, a sum of cosines whose
+frequencies come from the spectral density of the kernel. The length scale
+sets the size of the features and the smoothness how rough they are; the
+level follows from the expected fraction of the ball to be inside, since
+the process is Gaussian with unit variance. Every piece is a published
+construction: random Fourier features (Rahimi and Recht, 2007), the Matérn
+kernel, its spectral density and a non zero mean function (Rasmussen and
+Williams, 2006), excursion sets (Adler and Taylor, 2007) and intersection by
+minimum (Ricci, 1973).
+The scene is generated two times, before and after a change with objects
+added, removed or moved.
+Every part is a field shifted, solid where positive. As a consequence a scene
+is the maximum of its parts, so an object is added or removed by adding or
+dropping  a term. The movement is given by move is a removal at one pose plus
+an addition at another.
+The change is measured as the geometric difference of the two scenes, so that
+an object resting on a surface removes the surface it covers, and taking it
+away reveals it.
 '''
 
 # Import libraries
 from typing import NamedTuple
 
 import numpy as np
+from scipy.integrate import quad
+from scipy.optimize import brentq
+from scipy.stats import norm
 
 # --- Constants -------------------------------------------------------------
 
-FREQ_MIN = 3.0      # Lowest mode frequency, in units of 1 / radius
-FREQ_MAX = 16.0     # Highest mode frequency, in units of 1 / radius
-CLOSURE = 0.60      # Fraction of the radius where the radial term is null
-STRENGTH = 3.0      # Radial term at the border, in field deviations
+MEAN_DROP = 4.0     # Fall of the mean from centre to border, in deviations
 SHELL = 0.02        # Half thickness of the sampling shell, over the radius
 STEPS = 4           # Newton steps used to land on the isosurface
-LEVEL_PROBE = 20000 # Samples used to estimate the isolevel
-NORM_PROBE = 4000   # Samples used to estimate the field deviation
+LANDED = 1e-9       # Distance from the surface counted as landed
 MAX_BATCHES = 200   # Candidate batches drawn before giving up
 OBJECT_FILL = 0.45  # Fraction of its own ball an object fills
 OBJECT_PROBE = 256  # Points drawn first to measure the area of an object
@@ -57,45 +65,14 @@ class ScenePair(NamedTuple):
     added: np.ndarray   # (n_new,), new points away from the old surface
     removed: np.ndarray # (n_old,), old points away from the new surface
 
-# --- Generate point cloud --------------------------------------------------
-
-def generate_point_cloud(
-    n_points: int,
-    radius: float,
-    n_modes: int = 60,
-    decay: float = 1.6,
-    fill: float = 0.30,
-    seed: int | None = None,
-) -> np.ndarray:
-    """
-    Generate a random point cloud on the isosurface of a random field.
-    Args:
-        n_points: Total number of points.
-        radius: Radius of the sphere the scene lives in.
-        n_modes: Plane waves summed to build the field.
-        decay: Spectral decay of the mode amplitudes.
-        fill: Fraction of the scene volume inside the object.
-        seed: Seed for reproducibility.
-    Returns:
-        Array (n_points, 3), on the surface and inside the scene sphere.
-    Raises:
-        RuntimeError: If the isosurface is too small to carry the points.
-    """
-
-    _check_scene(n_points, radius, n_modes, fill)
-
-    rng = np.random.default_rng(seed)
-    background = _component(rng, n_modes, decay, radius, fill)
-
-    return _sample_surface(rng, background, n_points, radius)[0]
-
 # --- Generate a scene pair -------------------------------------------------
 
 def generate_scene_pair(
     n_points: int,
     radius: float,
-    n_modes: int = 60,
-    decay: float = 1.6,
+    n_modes: int = 256,
+    length: float = 0.3,
+    smoothness: float = 2.5,
     fill: float = 0.30,
     seed: int | None = None,
     n_added: int = 1,
@@ -109,8 +86,9 @@ def generate_scene_pair(
     Args:
         n_points: Points on the background surface.
         radius: Radius of the sphere the scene lives in.
-        n_modes: Plane waves summed to build each field.
-        decay: Spectral decay of the mode amplitudes.
+        n_modes: Random Fourier features summed to build each field.
+        length: Length scale of the features, over the radius.
+        smoothness: Matérn smoothness, lower is rougher.
         fill: Fraction of the scene volume inside the background.
         seed: Seed of the background, the same in both scenes.
         n_added: Objects present only after the change.
@@ -125,7 +103,7 @@ def generate_scene_pair(
     """
 
     # Inputs check
-    _check_scene(n_points, radius, n_modes, fill)
+    _check_scene(n_points, radius, n_modes, length, smoothness, fill)
     if min(n_added, n_removed, n_moved) < 0:
         raise ValueError("object counts must be non negative")
     if not 0 < object_radius < 0.5:
@@ -135,7 +113,7 @@ def generate_scene_pair(
 
     # Background, identical in both scenes and sampled once for both
     rng = np.random.default_rng(seed)
-    background = _component(rng, n_modes, decay, radius, fill)
+    background = _component(rng, n_modes, length, smoothness, radius, fill)
     base, area = _sample_surface(rng, background, n_points, radius)
     spacing = np.sqrt(area / n_points)
 
@@ -144,7 +122,8 @@ def generate_scene_pair(
     change = np.random.default_rng(change_seed)
     size = object_radius * radius
     shapes = [
-        _object_shape(change, n_modes, decay, size, n_points / area)
+        _object_shape(change, n_modes, length, smoothness, size,
+                      n_points / area)
         for _ in range(n_added + n_removed + n_moved)
     ]
 
@@ -185,6 +164,7 @@ def generate_scene_pair(
 # --- Helper functions ------------------------------------------------------
 
 def _check_scene(n_points: int, radius: float, n_modes: int,
+                 length: float, smoothness: float,
                  fill: float) -> None:
     """
     Validate the parameters shared by both generators.
@@ -196,26 +176,52 @@ def _check_scene(n_points: int, radius: float, n_modes: int,
         raise ValueError(f"radius must be positive, got {radius}")
     if n_modes < 1:
         raise ValueError(f"n_modes must be at least 1, got {n_modes}")
+    if length <= 0:
+        raise ValueError(f"length must be positive, got {length}")
+    if smoothness <= 0:
+        raise ValueError(f"smoothness must be positive, got {smoothness}")
     if not 0 < fill < 1:
         raise ValueError(f"fill must lie in (0, 1), got {fill}")
 
-def _component(rng: np.random.Generator, n_modes: int, decay: float,
-               radius: float, fill: float):
+def _component(rng: np.random.Generator, n_modes: int, length: float,
+               smoothness: float, radius: float, fill: float):
     """
-    A random field with its isolevel subtracted, solid where it is positive.
+    An excursion set cut to a ball, as a field solid where it is positive.
     """
 
-    field = _random_field(rng, n_modes, decay, radius)
+    field = _random_field(rng, n_modes, length, smoothness, radius)
 
-    # Isolevel leaving the requested fraction of the ball inside
-    probe = _uniform_in_ball(rng, LEVEL_PROBE, radius)
-    level = float(np.quantile(field(probe)[0], 1.0 - fill))
+    # The mean falls as the square of the distance from the centre, so the
+    # process sits above the level mostly inside and the object stays there
+    def mean(r: float) -> float:
+        return -MEAN_DROP * r ** 2
 
-    def shifted(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    # A point at fraction r of the radius is inside with probability
+    # 1 - Phi(level - mean), and the level is the one whose average over the
+    # ball, weighted by the volume 3 r^2 dr, is the fraction fill
+    def inside(level: float) -> float:
+        return 3.0 * quad(
+            lambda r: (1.0 - norm.cdf(level - mean(r))) * r ** 2, 0.0, 1.0
+        )[0]
+
+    level = brentq(lambda level: inside(level) - fill, -10.0, 10.0)
+
+    def component(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         value, gradient = field(x)
-        return value - level, gradient
+        distance = np.linalg.norm(x, axis=1)
+        value = value + mean(distance / radius) - level
+        gradient = gradient - 2.0 * MEAN_DROP * x / radius ** 2
 
-    return shifted
+        # Intersection with the ball is the minimum of the two, so the solid
+        # is closed by the ball wherever the excursion set reaches it
+        wall = radius - distance
+        cut = wall < value
+        outward = x / np.maximum(distance, 1e-12)[:, None]
+
+        return (np.where(cut, wall, value),
+                np.where(cut[:, None], -outward, gradient))
+
+    return component
 
 def _sample_surface(rng: np.random.Generator, field, count: int,
                     radius: float) -> tuple[np.ndarray, float]:
@@ -226,10 +232,14 @@ def _sample_surface(rng: np.random.Generator, field, count: int,
     points = np.empty((count, 3))
     filled = drawn = near = 0
 
+    # Candidates come from a ball one shell wider, so that the cap on the
+    # sphere gets a full shell around it and not only its inner half
+    outer = radius * (1.0 + SHELL)
+
     # Rejection sampling in batches, the acceptance rate not being known
     for _batch in range(MAX_BATCHES):
         missing = count - filled
-        x = _uniform_in_ball(rng, max(8 * missing, 4096), radius)
+        x = _uniform_in_ball(rng, max(8 * missing, 4096), outer)
         value, gradient = field(x)
 
         # Constant thickness shell, so the surface density stays uniform
@@ -240,8 +250,15 @@ def _sample_surface(rng: np.random.Generator, field, count: int,
         near += int(shell.sum())
         x = _project(x[shell], field)
 
-        # Near the border a Newton step can overshoot out of the scene sphere
-        x = x[np.linalg.norm(x, axis=1) <= radius]
+        # Near the crease where the excursion set meets the cap, Newton can
+        # bounce between the two and never land, so those points are dropped
+        value, gradient = field(x)
+        landed = np.abs(value) <= LANDED * radius * np.maximum(
+            np.linalg.norm(gradient, axis=1), 1e-12
+        )
+
+        # Points on the cap sit on the sphere itself, up to rounding
+        x = x[landed & (np.linalg.norm(x, axis=1) <= radius * (1.0 + 1e-9))]
 
         take = min(len(x), missing)
         points[filled:filled + take] = x[:take]
@@ -249,7 +266,7 @@ def _sample_surface(rng: np.random.Generator, field, count: int,
 
         if filled == count:
             # The shell holds a volume twice its half thickness times the area
-            volume = 4.0 / 3.0 * np.pi * radius ** 3
+            volume = 4.0 / 3.0 * np.pi * outer ** 3
             area = near / drawn * volume / (2.0 * SHELL * radius)
             return points, area
 
@@ -257,13 +274,14 @@ def _sample_surface(rng: np.random.Generator, field, count: int,
         f"could only place {filled} of {count} points on the isosurface"
     )
 
-def _object_shape(rng: np.random.Generator, n_modes: int, decay: float,
-                  size: float, density: float):
+def _object_shape(rng: np.random.Generator, n_modes: int, length: float,
+                  smoothness: float, size: float, density: float):
     """
     A closed random object in its own ball, sampled at the given density.
     """
 
-    field = _component(rng, n_modes, decay, size, OBJECT_FILL)
+    field = _component(rng, n_modes, length, smoothness, size,
+                       OBJECT_FILL)
     points, area = _sample_surface(rng, field, OBJECT_PROBE, size)
 
     # The first batch measures the area, the second tops up to the density
@@ -364,50 +382,29 @@ def _distance(field, x: np.ndarray) -> np.ndarray:
     value, gradient = field(x)
     return np.abs(value) / np.maximum(np.linalg.norm(gradient, axis=1), 1e-12)
 
-def _random_field(rng: np.random.Generator, n_modes: int, decay: float,
-                  radius: float):
+def _random_field(rng: np.random.Generator, n_modes: int, length: float,
+                  smoothness: float, radius: float):
     """
-    Build a random scalar field, closed by a radial term near the border.
-    Returns a function giving the value and the gradient of the field at a
-    set of points, with the modes drawn once and captured in the closure.
+    A sample of a unit variance Gaussian process with a Matérn covariance.
+    Random Fourier features: a sum of cosines with uniform random phases and
+    frequencies drawn from the spectral density of the kernel, which for a
+    Matérn kernel is a multivariate t with twice the smoothness as degrees of
+    freedom. Returns a function giving the value and the gradient of the
+    sample at a set of points, with the features drawn once.
     """
 
-    # Directions uniform on the sphere, from a normalised Gaussian vector
-    directions = rng.standard_normal((n_modes, 3))
-    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
-
-    # Log uniform frequencies, so that every octave is equally represented
-    frequency = np.exp(
-        rng.uniform(np.log(FREQ_MIN), np.log(FREQ_MAX), n_modes)
-    ) / radius
-
-    # Amplitudes falling as the frequency to the power of the decay
-    waves = directions * frequency[:, None]
-    amplitude = frequency ** (-decay)
+    # Multivariate t: a Gaussian divided by an independent chi square root
+    scale = np.sqrt(2.0 * smoothness / rng.chisquare(2.0 * smoothness,
+                                                      n_modes))
+    waves = (rng.standard_normal((n_modes, 3)) * scale[:, None]
+             / (length * radius))
     phase = rng.random(n_modes) * 2.0 * np.pi
-
-    # Unit deviation, so that STRENGTH means the same for every setting
-    probe = _uniform_in_ball(rng, NORM_PROBE, radius)
-    spread = (amplitude * np.sin(probe @ waves.T + phase)).sum(axis=1).std()
-    amplitude = amplitude / max(float(spread), 1e-12)
-
-    inner = CLOSURE * radius
+    weight = np.sqrt(2.0 / n_modes)
 
     def field(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-
-        # Wave sum and its gradient, from the same projection
         projection = x @ waves.T + phase
-        value = (amplitude * np.sin(projection)).sum(axis=1)
-        gradient = (amplitude * np.cos(projection)) @ waves
-
-        # One sided radial term, null inside the inner radius
-        distance = np.linalg.norm(x, axis=1)
-        scaled = np.clip((distance - inner) / (radius - inner), 0.0, None)
-        slope = 2.0 * STRENGTH * scaled / (
-            (radius - inner) * np.maximum(distance, 1e-12)
-        )
-
-        return value - STRENGTH * scaled ** 2, gradient - slope[:, None] * x
+        return (weight * np.cos(projection).sum(axis=1),
+                -weight * np.sin(projection) @ waves)
 
     return field
 
