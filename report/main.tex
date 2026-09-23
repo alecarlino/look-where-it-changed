@@ -16,6 +16,10 @@
 \usepackage{amssymb} % For mathcal
 \usepackage{lmodern} % For Latin Model font
 
+% Bibliography (Better BibTeX export from Zotero, BibLaTeX format)
+\usepackage[backend=biber, style=ieee]{biblatex}
+\addbibresource{references.bib}
+
 % Define custom colours
 \definecolor{raspberry}{RGB}{213,62,79}
 \definecolor{tomato}{RGB}{244,109,67}
@@ -53,6 +57,6 @@
 %\input{sections/background.tex}
 %\input{sections/related_work.tex}
 
-\bibliography{references.bib}
+\printbibliography
 
 \end{document}
