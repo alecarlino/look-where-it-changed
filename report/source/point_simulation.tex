@@ -1,0 +1,35 @@
+\section{Point Simulation}
+To conduct a preliminary study and test the camera pose optimization and planning algorithm, the problem is recreated in a simplified manner within a synthetic, controlled, and reproducible environment to create, using a procedural method, the largest dataset of configurations possible. In this phase, the change detection component of the pipeline is assumed to be given and working perfectly; therefore, only the components interacting with the point cloud are reproduced. The photometric difference is momentarily ignored and reduced to a proxy.
+
+\subsection{Synthetic Point Cloud}
+A real depth sensor (RGB-D) or a structure from motion (SfM) outputs only the reconstruction of the scene's surfaces; it cannot provide the points contained inside the volume of the present objects. This has direct consequences for reconstruction properties, such as occlusions, incident angles, and the boundaries of known and unknown zones. To simulate this, it is necessary to first generate the surface of a random solid volume and then sample its points.
+
+The solid is defined using a level surface, a function $f(x,y,z)$, which associates a number with each point in 3D space:
+\begin{itemize}
+  \item $f(x,y,z)<0$ point inside the solid volume;
+  \item $f(x,y,z)<0$, point is on the surface of the volume;
+  \item $f(x,y,z)>0$, point is outside the solid volume.
+\end{itemize}
+
+This structure simplifies the definition of a point position respect to the volume and the computation of boolean operations among different solids, such as union, subtraction and intersection.
+A procedural level surface can be defined as:
+
+\begin{equation}
+  f(x,y,z) = g(x,y,z) + m(x,y,z) + u,
+  \label{eq:level_surface}
+\end{equation}
+
+where:
+\begin{itemize}
+  \item $g(x,y,z)$ is the random component;
+  \item $m(x,y,z)$ is a dome function;
+  \item $u$ is a threshold.
+\end{itemize}
+
+The simulation task requires a true variety of achievable shapes, the challenge for the algorithm in testing should be tunable using interpretable parameters, such as size of folds to influence the occlusion and the roughness to chnged the level of affidability of the visibility filter, the absence of a privilege direction, a real function which can be evaluate using gradient in every point, a known distribution of values to make the object size fixed.
+
+In addition, the level set benefit from the following properties: if the function $f(x,y,z)$ is differentiable, its gradient at a point is either zero, or perpendicular to the level set of f at that point.
+
+
+
+The random function $g(x,y,z)$ have to satisfy the following properties to be feasable for the point cloud simulation. The function must be smooth to guarantee that the volume is delimeted by an uniform surface, it must have a fixed humps size to make the object size tunable, its roughness must be tunable too, it must be isotrpopic and stationary to gurantee equivalence along all directions and in all point, and its value must have a known distribution to make the thrshold computable.
