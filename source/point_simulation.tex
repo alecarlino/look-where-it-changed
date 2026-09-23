@@ -7,11 +7,11 @@ A real depth sensor (RGB-D) or a structure from motion (SfM) outputs only the re
 The solid is defined implicitly by a scalar field $g(x,y,z)$, which associates a number with each point in 3D space:
 \begin{itemize}
   \item $g(x,y,z)<0$ point lies inside the solid volume;
-  \item $g(x,y,z)=0$, point lies on the surface of the volume;
-  \item $g(x,y,z)>0$, point lies outside the solid volume.
+  \item $g(x,y,z)=0$ point lies on the surface of the volume;
+  \item $g(x,y,z)>0$ point lies outside the solid volume.
 \end{itemize}
 
-This representation simplifies the evaluation of points position respect to the volume and the computation of boolean operations, the union of two solid is the minimum of their field and their intersection is the maximum. A procedural level surface $g(x,y,z)=0$ can be defined as:
+This representation simplifies the evaluation of points positions respect to the volume and the computation of boolean operations. The union of two solid is the minimum of their field and their intersection is the maximum. A procedural level surface $g(x,y,z)=0$ can be defined as:
 
 \begin{equation}
   g(x,y,z) = f(x,y,z) + m(x,y,z) - u,
