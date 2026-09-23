@@ -54,6 +54,29 @@ Tre vantaggi:
 Questa rappresentazione si chiama *superficie implicita* o *insieme di
 livello*.
 
+### Da $g$ a $f$: chi è chi
+
+$g$ è **il solido**, $f$ è **il suo ingrediente casuale**. La nebbia $f(x)$
+del §2 da sola non è un oggetto: è un numero che oscilla attorno a 0 in
+tutto lo spazio. Il campo del solido si costruisce da lei in tre mosse:
+
+$$g(x) = \underbrace{f(x)}_{\text{nebbia, §2}} + \underbrace{m(x)}_{\text{cupola, §3}} - \underbrace{u}_{\text{soglia, §4}}, \qquad g_{\text{scena}}(x) = \min\big(g(x),\, R - |x|\big) \;\; \text{(§5)}$$
+
+così "$g > 0$" vuol dire esattamente "nebbia più cupola supera la soglia".
+Esempio con il valore vero di default, $u = -1.64$ (§4), e la stessa
+nebbia $f = -0.5$ in tre posti:
+
+- al centro, $m = 0$: $g = -0.5 + 0 + 1.64 = 1.14$, dentro;
+- a metà raggio, $m = -1$: $g = -0.5 - 1 + 1.64 = 0.14$, dentro di poco;
+- a tre quarti, $m = -2.25$: $g = -0.5 - 2.25 + 1.64 = -1.11$, fuori.
+
+La stessa nebbia è dentro al centro e fuori verso il bordo: è la cupola.
+
+Dal §6 in poi si lavora solo con $g$: guscio, Newton, distanza e unione non
+sanno che dentro ci sono onde. Nel codice è la riga di `_component`
+`value = value + mean(distance / radius) - level`, dove `value` entra come
+$f$ ed esce come $g$.
+
 ---
 
 ## 2. La nebbia: un campo casuale fatto di onde
@@ -90,9 +113,13 @@ Usiamo il kernel **Matérn**, lo standard in statistica spaziale
 - $\nu$ (`smoothness`): la **rugosità**.
   - $\nu = 0.5$: il campo è continuo ma spigoloso ovunque, come una roccia
     frattale.
-  - $\nu = 1.5$: derivabile una volta.
-  - $\nu = 2.5$: derivabile due volte.
+  - $\nu = 1.5$: derivabile una volta, in media quadratica.
+  - $\nu = 2.5$: derivabile due volte, in media quadratica.
   - $\nu \to \infty$: liscissimo, il kernel diventa gaussiano.
+
+  Vale per il processo teorico. Il campione con 256 onde è sempre
+  infinitamente derivabile: $\nu$ decide quanta energia sta nelle rughe
+  piccole, e il §16 spiega perché questo conta.
 
 Noi usiamo $\nu = 2.5$, e per quel valore il kernel ha una forma chiusa:
 
@@ -175,7 +202,7 @@ campo **è** quello che la letteratura dice, e si può citare.
 
 ---
 
-## 3. La media che scende: tenere l'oggetto al centro
+## 3. La media a cupola: tenere l'oggetto al centro
 
 ### Il problema
 
@@ -189,7 +216,27 @@ camere. Poco realistica e troppo facile.
 ### La soluzione
 
 Un GP può avere una **funzione media** non nulla (Rasmussen e Williams,
-§2.7). Aggiungiamo al campo una conca, cioè una parabola rovesciata:
+§2.7). Aggiungiamo al campo una **cupola**, cioè una parabola rovesciata:
+massima (0) al centro, sempre più negativa verso il bordo. Lungo un raggio:
+
+```
+m(r)
+  0 ┤●●●●●
+    │      ●●●●
+ -1 ┤          ●●●
+    │             ●●●
+ -2 ┤                ●●
+    │                  ●●
+ -3 ┤                    ●●
+    │                      ●
+ -4 ┤                       ●
+    └──────────────────────────
+     centro     metà      bordo
+```
+
+Immagina le onde della nebbia appoggiate sopra questa collina, e allaga
+tutto fino all'altezza $u$: l'isola che emerge è l'oggetto. Le onde in cima
+emergono, quelle sui fianchi restano sott'acqua.
 
 $$m(x) = -\text{MEAN\_DROP} \cdot \frac{|x|^2}{R^2}, \qquad \text{MEAN\_DROP} = 4$$
 
@@ -203,6 +250,15 @@ muro.
 
 Perché 4: con 0 la calotta è il 27% della pelle, con 2 il 9%, con 4 lo
 0.8%, e resta un oggetto solo. Con 6 l'oggetto si schiaccia verso una palla.
+
+**Cosa è citato e cosa è nostro.** Dal libro viene solo l'idea che un GP
+possa avere una media non nulla, anche costruita da funzioni di base fisse
+come i polinomi; in geostatistica è il *trend*. La **forma** parabolica e il
+**valore** 4 sono una scelta nostra: la parabola è la funzione più semplice,
+liscia e uguale in ogni direzione che vale 0 al centro e scende al bordo, e
+4 è il valore più basso a cui le calotte spariscono nella prova di
+`notes.md`. Nel report va scritta come scelta di modellazione giustificata
+da quella prova, non come formula presa da altri.
 
 Nel codice, dentro `_component`:
 
@@ -251,6 +307,24 @@ Si risolve per $u$ numericamente:
 Questo modo di descrivere un oggetto casuale, cioè "la regione dove un campo
 gaussiano supera un livello", si chiama **insieme di escursione** (Adler e
 Taylor 2007).
+
+### Cosa rappresenta $u$
+
+È il **livello dell'acqua** nell'immagine dell'isola del §3: acqua alta,
+oggetto piccolo; acqua bassa, oggetto grande. Valori veri, con la cupola da
+4:
+
+| `fill` | $u$ | dentro al centro | a metà raggio | al bordo |
+|---|---|---|---|---|
+| 0.15 | −0.84 | 80% | 44% | 0.1% |
+| **0.30** | **−1.64** | **95%** | **74%** | **0.9%** |
+| 0.45 | −2.26 | 99% | 90% | 4% |
+
+Il livello è **negativo**: la cupola abbassa tutto il campo, e l'acqua deve
+scendere sotto lo zero per lasciar emergere il 30%. Senza cupola basterebbe
+$u \approx +0.5$. L'oggetto viene quindi fatto di un nucleo quasi pieno al
+centro, con la pelle frastagliata dalle onde nella fascia intermedia: è lì
+che nascono pieghe e cavità.
 
 ### Onestà: `fill` è una media, non una promessa
 
@@ -525,7 +599,7 @@ non risulta cambiata.
 
 ```
 seed ──► onde casuali (Matérn, §2)
-          + conca (media, §3)
+          + cupola (media, §3)
           − livello u da fill (§4)
           ∩ sfera (min, §5)                        = campo dello sfondo g
           │
@@ -588,7 +662,276 @@ valori sono nelle tabelle di `notes.md`.
 
 ---
 
-## 16. Da dove viene ogni pezzo
+## 16. Perché proprio questa $f$ e non un'altra
+
+Qui la scelta di $f$ si giustifica come una catena: prima i **requisiti**, che
+vengono dal problema e non da $f$; poi ogni scelta come l'unica, o la più
+semplice, che li soddisfa, con le alternative e il requisito su cui cadono.
+Alla fine resta quello che è una **convenzione** o una **scelta di
+modellazione**, da dichiarare come tale.
+
+### 16.1 I requisiti
+
+Il simulatore è un banco di prova per un pianificatore di viste. Da questo
+seguono sei requisiti sull'oggetto:
+
+- **R1 — varietà vera.** Concavità, cavità, più componenti, forme che nessuno
+  ha disegnato. Un pianificatore valutato su forme scelte a mano è valutato
+  sul gusto di chi le ha scelte.
+- **R2 — difficoltà regolabile con parametri interpretabili.** Per dire su
+  quali scene si è testato e per rendere il test più difficile in modo
+  controllato: la taglia delle pieghe, che decide quanta auto-occlusione c'è,
+  e la rugosità, che decide quanto è affidabile il filtro di visibilità.
+- **R3 — nessun posto e nessuna direzione privilegiati**, se non quelli
+  imposti apposta. Altrimenti il risultato dipende da dove capita il
+  cambiamento rispetto a un riferimento arbitrario.
+- **R4 — una funzione vera, valutabile in qualunque punto, sempre uguale, con
+  il gradiente.** La verità di visibilità marcia lungo raggi arbitrari, Newton
+  valuta punti arbitrari, il cambiamento valuta la scena vecchia sui punti
+  della nuova. Tutti devono vedere **la stessa** superficie, esattamente.
+- **R5 — una distribuzione dei valori nota**, così la dimensione
+  dell'oggetto si fissa con una formula (§4) e non per tentativi.
+- **R6 — una costruzione standard, con proprietà dimostrate e citabili.**
+
+### 16.2 Perché un campo casuale e non un catalogo di forme
+
+| alternativa | dove cade |
+|---|---|
+| Forme parametriche con parametri casuali (sfera, toro, C, L) | **R1**: la varietà è apparente, le topologie sono quelle elencate |
+| Sezione trascinata lungo una curva casuale (provata) | **R1**: sempre un tubo, mai un oggetto con massa |
+| Somma di bolle in posizioni casuali (*metaball*, Blinn 1982) | **R1** in parte: forme a grappolo di sfere. **R5**: il valore del campo dipende da quante bolle si sovrappongono, niente formula per `fill` |
+| Modelli CAD o scansioni reali (ShapeNet, ecc.) | **R2**: nessuna manopola di difficoltà. **R4**: la verità esatta richiede una mesh chiusa e pulita. Restano un'alternativa **complementare** per il realismo, da lavoro futuro |
+
+L'insieme di escursione di un campo casuale soddisfa R1 senza sforzo: la
+topologia non si costruisce, viene dalla casualità. Aumentando la taglia
+relativa della scena rispetto alle pieghe compaiono da sole più componenti,
+più manici, più cavità.
+
+### 16.3 Perché gaussiano
+
+| alternativa | dove cade |
+|---|---|
+| Rumore di Perlin o simplex (Perlin 1985), lo standard della grafica | **R5**: la distribuzione dei valori non è gaussiana e non ha forma chiusa. **R3**: è costruito su un reticolo, e resta un'anisotropia legata agli assi. **R6**: è una tecnica, non un modello con proprietà enunciabili |
+| Campi non gaussiani (chi-quadro, t, log-normali) | **R5** in parte: la formula per `fill` esiste ma cambia modello per modello. Aggiungono asimmetrie che niente nel problema richiede |
+| **Processo gaussiano** | È determinato **solo** da media e covarianza: tutte le manopole stanno lì (**R2**). I valori sono gaussiani, quindi `fill` ha la formula del §4 (**R5**). Esiste una teoria completa dei suoi insiemi di escursione (Adler e Taylor 2007) (**R6**) |
+
+C'è anche un argomento di principio: fra tutte le distribuzioni con una media
+e una covarianza date, la gaussiana è quella a **massima entropia** (Cover e
+Thomas 2006, cap. 12), cioè quella che aggiunge meno ipotesi oltre alle due
+che si sono scelte. Scegliendo la covarianza si dice quanto sono grandi e
+quanto sono rugose le pieghe; scegliendo la gaussiana si dice di non
+presumere nient'altro.
+
+### 16.4 Perché stazionario e isotropo
+
+Stazionario e isotropo vuol dire
+
+$$\operatorname{Cov}\big(f(x), f(y)\big) = k(\lvert x - y\rvert),$$
+
+cioè la somiglianza fra due punti dipende solo dalla loro distanza. È la
+traduzione letterale di **R3**. Ha due conseguenze utili.
+
+- **Tutta la struttura spaziale è esplicita.** L'unica cosa che distingue il
+  centro dal bordo è la cupola $m$, che si dichiara e si giustifica a parte.
+  Non c'è struttura nascosta nel campo.
+- **La legge della scena è invariante per rotazioni attorno al centro**,
+  perché $f$ è isotropa e $m$ dipende solo da $\lvert x\rvert$. Quindi le
+  camere sul locus sferico non hanno orientazioni privilegiate: nessun
+  risultato dipende da come sono orientati gli assi.
+
+È però una **scelta di modellazione**, e va dichiarata come tale: le scene
+vere **non** sono isotrope. La gravità crea pavimenti orizzontali, pareti
+verticali, oggetti appoggiati. Il generatore produce scene **generiche**, non
+stanze. L'unico elemento non isotropo è voluto: gli oggetti si appoggiano su
+superfici rivolte verso l'alto.
+
+### 16.5 Perché la covarianza Matérn
+
+Un processo stazionario e isotropo è determinato dal suo kernel $k(r)$, o
+equivalentemente dalla sua **densità spettrale** $p(\omega)$, che dice quanta
+energia c'è a ogni frequenza. È lo spettro a decidere la forma: quanto sono
+grandi le pieghe e quante rughe piccole ci sono sopra.
+
+Il Matérn ha densità spettrale in 3D
+
+$$p(\omega) \propto \left(\frac{2\nu}{\ell^2} + \lvert\omega\rvert^2\right)^{-(\nu + 3/2)}$$
+
+che si legge in due pezzi:
+
+- per $\lvert\omega\rvert \ll 1/\ell$ è **piatta**: tutte le pieghe più
+  grandi di $\ell$ hanno la stessa energia, quindi **$\ell$ è la taglia**
+  oltre la quale non c'è più struttura;
+- per $\lvert\omega\rvert \gg 1/\ell$ scende come una **legge di potenza**,
+  $\lvert\omega\rvert^{-(2\nu + 3)}$: **$\nu$ decide quanto velocemente
+  spariscono le rughe piccole**.
+
+Le due manopole sono quindi **separate**: una sposta dove inizia la discesa,
+l'altra ne decide la pendenza. È esattamente **R2**.
+
+| alternativa | spettro | dove cade |
+|---|---|---|
+| Gaussiano (*squared exponential*) | scende come $e^{-\ell^2\lvert\omega\rvert^2/2}$, più veloce di ogni potenza | **R2**: un parametro solo, nessuna rugosità. Liscio in modo irrealistico: Stein (1999) lo sconsiglia proprio per questo per i dati spaziali |
+| Esponenziale | legge di potenza con $\nu = 1/2$ | rugoso a ogni scala: vedi 16.6 |
+| Rational quadratic | miscela di gaussiani a scale diverse | il secondo parametro mescola scale invece di controllare la rugosità; meno standard per i dati spaziali |
+| **Matérn** | piatto, poi potenza | due manopole separate; **contiene gli altri come casi limite** (esponenziale a $\nu = 1/2$, gaussiano per $\nu \to \infty$); è il kernel raccomandato per la statistica spaziale (Stein 1999; Rasmussen e Williams §4.2) |
+
+La coda a legge di potenza ha anche un argomento di realismo: le superfici
+reali hanno tipicamente spettri di rugosità a legge di potenza su un ampio
+intervallo di scale (Persson et al. 2005), mentre la coda esponenziale del
+kernel gaussiano non ha un corrispettivo fisico.
+
+### 16.6 Perché $\nu = 2.5$: teoria, forma chiusa, esperimento
+
+Qui la scelta ha **tre** giustificazioni indipendenti che puntano allo stesso
+valore.
+
+**La teoria: $\nu > 2$ perché la curvatura sia definita.** Un processo
+Matérn è derivabile $n$ volte in media quadratica se e solo se $\nu > n$
+(Rasmussen e Williams §4.2.1). Nelle random Fourier features questo si vede
+direttamente. Le frequenze sono una t di Student con $2\nu$ gradi di
+libertà, che ha momenti finiti solo di ordine minore di $2\nu$, e
+
+- la varianza del **gradiente** di $f$ è proporzionale a
+  $\mathbb E\lvert\omega\rvert^2$, finita solo se $\nu > 1$;
+- la varianza delle **derivate seconde**, cioè della curvatura della
+  superficie, è proporzionale a $\mathbb E\lvert\omega\rvert^4$, finita
+  solo se $\nu > 2$.
+
+Verificato estraendo un milione di frequenze e confrontando le due metà del
+campione:
+
+| $\nu$ | $\mathbb E\lvert\omega\rvert^2$, due metà | $\mathbb E\lvert\omega\rvert^4$, due metà |
+|---|---|---|
+| 0.5 | 1.8·10⁵ contro 8.8·10⁹ | ~10¹⁵ contro ~10²⁵ |
+| 1.5 | 8.8 contro 9.0 | 3570 contro 4213 |
+| **2.5** | **5.0 contro 5.0** | **127 contro 125** |
+
+Un momento infinito si riconosce così: la media non si stabilizza, e la
+domina la frequenza più grande che si è estratta. Cosa vuol dire per la
+scena:
+
+- con $\nu \le 1$ le **normali** dipendono dalle poche onde più fitte
+  estratte per caso;
+- con $1 < \nu \le 2$ le normali sono stabili ma la **curvatura** no;
+- con $\nu > 2$ entrambe hanno statistiche che convergono al crescere di $K$.
+
+In altre parole: con $\nu \le 2$ il dettaglio fine della superficie è deciso
+dal **troncamento** a 256 onde, cioè da un artefatto numerico. Con
+$\nu > 2$ è deciso dal **modello**. La curvatura non è un dettaglio: la
+usano la stima delle normali con la PCA locale, la distanza al primo ordine
+(il cui errore è proporzionale alla curvatura) e il guscio di campionamento
+(la cui uniformità è valida fino a termini di ordine spessore × curvatura).
+
+**La forma chiusa: il primo semi-intero oltre 2.** Per $\nu$ semi-intero
+il Matérn si scrive come esponenziale per polinomio, senza funzioni di
+Bessel. Rasmussen e Williams indicano 3/2 e 5/2 come i valori di uso
+comune. 5/2 è il più piccolo semi-intero con $\nu > 2$: la formula del §2
+che si confronta con la covarianza misurata è quella.
+
+**L'esperimento: dove il filtro smette di migliorare.** Accordo del filtro
+di visibilità con la verità, e frazione visibile da una vista, cioè la
+difficoltà:
+
+| $\nu$ | accordo | visibile da una vista |
+|---|---|---|
+| 0.5 | 84.2% | 27% |
+| 1.5 | 90.9% | 35% |
+| **2.5** | **93.9%** | **37%** |
+| 5.0 | 94.3% | 43% |
+
+Da 1.5 a 2.5 il filtro guadagna tre punti; da 2.5 a 5 ne guadagna mezzo,
+mentre la scena diventa più facile di sei punti. Il gomito cade fra 1.5 e
+2.5, cioè a cavallo della soglia $\nu = 2$ oltre la quale la teoria dice che
+la curvatura è definita: **i tre argomenti sono coerenti**. Con quattro
+valori di $\nu$ provati è una coerenza, non una dimostrazione che il gomito
+stia esattamente a 2.
+
+### 16.7 Perché $\ell = 0.3\,R$
+
+$\ell$ decide quanta topologia c'è. Per un campo gaussiano stazionario con
+varianza 1 in 3D, il numero atteso di "pezzi di topologia" per unità di
+volume, cioè la densità della caratteristica di Eulero dell'insieme di
+escursione, è (Adler e Taylor 2007)
+
+$$\rho(u) = \frac{\lambda_2^{3/2}}{(2\pi)^2}\,(u^2 - 1)\,e^{-u^2/2}, \qquad \lambda_2 = -k''(0) = \frac{\nu}{(\nu - 1)\,\ell^2}$$
+
+con $\lambda_2$ il **secondo momento spettrale**, che per il Matérn con
+$\nu = 5/2$ vale $5/(3\ell^2)$ (verificato numericamente). Quindi a livello
+fissato il numero di componenti, manici e cavità scala come
+$(R/\ell)^3$:
+
+- $\ell \gg R$: un solo blob convesso, ogni vista vede quasi tutto;
+- $\ell \ll R$: una spugna di bolle piccole, più piccole della spaziatura
+  dei punti;
+- $\ell = 0.3\,R$: circa tre pieghe per raggio, cioè un oggetto con lobi,
+  fessure e auto-occlusione vera (36–40% visibile da una vista), ancora ben
+  campionato da qualche migliaio di punti.
+
+Anche questo argomento chiede $\nu > 1$: con $\lambda_2$ infinito la
+formula esplode, e il numero di pezzi di topologia dipenderebbe dal
+troncamento.
+
+Due precisazioni. La formula vale per un campo senza media; con la cupola
+vale localmente, con $u$ sostituito da $u - m(x)$. E $\ell = 0.3$ non è
+ottimizzato: è una scelta di scala, e la trasferibilità del filtro è stata
+verificata anche a 0.2 e a 0.4 (`notes.md`).
+
+### 16.8 Perché media zero e varianza uno
+
+Non è una restrizione, è una scelta di **unità di misura**. Moltiplicare
+$f$ per $\sigma$ e spostarla di $\mu$ dà l'insieme
+
+$$\{\sigma f + \mu + m - u \ge 0\} = \Big\{f + \tfrac{m}{\sigma} - \tfrac{u - \mu}{\sigma} \ge 0\Big\},$$
+
+lo stesso che si ottiene con $f$ standard, cupola $m/\sigma$ e livello
+$(u - \mu)/\sigma$. Nessuna forma si perde. Il vantaggio è che tutto si
+legge in deviazioni standard: `MEAN_DROP` = 4 vuol dire che al bordo il
+campo è spinto giù di quattro deviazioni.
+
+### 16.9 Perché le random Fourier features
+
+| alternativa | dove cade |
+|---|---|
+| GP esatto con Cholesky sui punti | **R4**: il campo esiste solo sui punti fissati prima, non dove serve dopo (Newton, raggi, l'altra scena); inoltre costa $O(N^3)$ |
+| Griglia con FFT, poi interpolazione | **R4**: verità non più esatta, gradiente approssimato, periodicità della griglia |
+| Approccio SPDE su mesh (Lindgren, Rue e Lindström 2011) | **R4**: il campo vive sulla mesh, e tra i nodi è interpolato |
+| **Random Fourier features** | una funzione vera, valutabile ovunque e sempre uguale, infinitamente derivabile, con gradiente analitico, $O(K)$ per punto. La covarianza è esattamente quella del Matérn per il teorema di Bochner (Rahimi e Recht 2007) |
+
+Il prezzo va dichiarato: per $K$ finito i valori sono gaussiani solo
+**approssimativamente**, per il teorema del limite centrale, e la covarianza
+di un singolo campione oscilla attorno a quella teorica con errore
+$O(1/\sqrt K)$. Con $K = 256$ la covarianza misurata coincide con quella
+teorica entro 0.014 (§2), mentre `fill` risulta 0.318 invece di 0.30.
+
+### 16.10 Cosa resta una scelta
+
+| scelta | natura | come si giustifica |
+|---|---|---|
+| Campo gaussiano | principio | massima entropia date media e covarianza |
+| Stazionario e isotropo | **modellazione** | neutralità (R3); le scene vere non lo sono, va nei limiti |
+| Matérn | standard | due manopole separate, contiene gli altri kernel, raccomandato da Stein |
+| $\nu = 2.5$ | teoria + esperimento | curvatura definita per $\nu > 2$, primo semi-intero, gomito del filtro |
+| $\ell = 0.3\,R$ | **scala** | topologia $\propto (R/\ell)^3$; trasferibilità verificata a 0.2 e 0.4 |
+| Media 0, varianza 1 | convenzione | nessuna perdita di generalità |
+| Random Fourier features | tecnica | unico metodo che dà una funzione valutabile ovunque |
+| $K = 256$ | numerico | covarianza verificata; `fill` in eccesso di 0.02 |
+
+**In quattro frasi, per il report:**
+
+> Serve un oggetto casuale di topologia arbitraria, quindi un insieme di
+> escursione di un campo casuale. Il campo è gaussiano, perché è la scelta a
+> massima entropia una volta fissate media e covarianza e perché rende
+> analitica la dimensione dell'oggetto; stazionario e isotropo, per non
+> favorire alcun punto o direzione. La covarianza è Matérn, l'unica famiglia
+> standard che separa la scala delle pieghe dalla loro rugosità, con
+> $\nu = 5/2$, il più piccolo valore in forma chiusa per cui la curvatura
+> della superficie è definita. Il campo è campionato con random Fourier
+> features, che lo rendono una funzione liscia, valutabile ovunque con il
+> suo gradiente e con la covarianza esatta.
+
+---
+
+## 17. Da dove viene ogni pezzo
 
 | pezzo | riferimento |
 |---|---|
@@ -598,5 +941,11 @@ valori sono nelle tabelle di `notes.md`.
 | Intersezione come minimo, unione come massimo (§5, §11) | A. Ricci, *A Constructive Geometry for Computer Graphics*, The Computer Journal 1973 |
 | Distanza al primo ordine $\lvert g\rvert/\lvert\nabla g\rvert$ (§6, §12) | G. Taubin, *Estimation of Planar Curves, Surfaces, and Nonplanar Space Curves Defined by Implicit Equations*, IEEE TPAMI 1991 |
 | Proiezione di Newton sulla superficie implicita (§7) | A. Witkin, P. Heckbert, *Using Particles to Sample and Control Implicit Surfaces*, SIGGRAPH 1994 |
+| Matérn raccomandato per i dati spaziali, critica del kernel gaussiano (§16) | M. L. Stein, *Interpolation of Spatial Data: Some Theory for Kriging*, Springer 1999 |
+| Gaussiana a massima entropia (§16) | T. M. Cover, J. A. Thomas, *Elements of Information Theory*, 2ª ed., Wiley 2006, cap. 12 |
+| Rumore di Perlin, alternativa scartata (§16) | K. Perlin, *An Image Synthesizer*, SIGGRAPH 1985 |
+| Metaball, alternativa scartata (§16) | J. F. Blinn, *A Generalization of Algebraic Surface Drawing*, ACM TOG 1982 |
+| Campi Matérn come SPDE su mesh, alternativa scartata (§16) | F. Lindgren, H. Rue, J. Lindström, *An Explicit Link between Gaussian Fields and Gaussian Markov Random Fields: the SPDE Approach*, JRSS-B 2011 |
+| Spettri di rugosità a legge di potenza delle superfici reali (§16) | B. N. J. Persson et al., *On the Nature of Surface Roughness with Application to Contact Mechanics, Sliding Friction, Rubber Friction and Adhesion*, J. Phys.: Condens. Matter 2005 |
 | Rotazioni casuali da QR, e la correzione dei segni (§10) | F. Mezzadri, *How to Generate Random Matrices from the Classical Compact Groups*, Notices of the AMS 2007 |
 | Cambiamenti simulati per la change detection su nuvole di punti (§12) | I. de Gélis, S. Lefèvre, T. Corpetti, *Change Detection in Urban Point Clouds: An Experimental Comparison with Simulated 3D Datasets* (Urb3DCD), Remote Sensing 2021 |
