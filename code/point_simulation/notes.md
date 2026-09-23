@@ -38,7 +38,7 @@ citare invece di doverlo giustificare: random Fourier features (Rahimi e
 Recht, 2007), kernel Matérn, sua densità spettrale e funzione media non nulla
 (Rasmussen e Williams, *Gaussian Processes for Machine Learning*, 2006, §2.7
 e §4.2), insiemi di escursione (Adler e Taylor, *Random Fields and
-Geometry*, 2007), intersezione come minimo (Ricci, 1973), proiezione sulla
+Geometry*, 2007), intersezione come massimo (Ricci, 1973), proiezione sulla
 superficie lungo il gradiente (Witkin e Heckbert, 1994), distanza al primo
 ordine (Taubin, 1991). Un generatore precedente, costruito ad hoc, è
 descritto in fondo a questa parte.
@@ -76,7 +76,14 @@ vicina alla gaussiana, a costo lineare.
 
 ## La media che scende verso il bordo
 
-$$g(x) = f(x) + m(x) - u, \qquad m(x) = -\text{MEAN\_DROP}\,\frac{|x|^2}{R^2}$$
+$$g(x) = u - m(x) - f(x), \qquad m(x) = -\text{MEAN\_DROP}\,\frac{|x|^2}{R^2}$$
+
+**Convenzione dei segni.** Il solido è dove $g \le 0$, come nelle funzioni
+distanza con segno: il campo è l'opposto dell'eccedenza $f + m - u$ sopra
+il livello. Di conseguenza l'unione è il **minimo** e l'intersezione il
+**massimo**, e il gradiente $\nabla g$ punta **verso l'esterno**, cioè è già
+la normale uscente. La letteratura sugli insiemi di escursione usa il segno
+opposto, $\{f + m \ge u\}$: è la stessa cosa cambiata di segno.
 
 Un processo gaussiano può avere una funzione media non nulla (Rasmussen e
 Williams, §2.7). Con una media che scende verso il bordo il campo sta sopra
@@ -124,10 +131,10 @@ scene.
 
 ## La chiusura: intersezione con una sfera
 
-$$g_{\text{scena}}(x) = \min\big(g(x),\; R - |x|\big)$$
+$$g_{\text{scena}}(x) = \max\big(g(x),\; |x| - R\big)$$
 
-L'intersezione di due solidi è il minimo dei loro campi (Ricci, 1973), la
-stessa operazione, duale, dell'unione come massimo usata per gli oggetti.
+L'intersezione di due solidi è il massimo dei loro campi (Ricci, 1973), la
+stessa operazione, duale, dell'unione come minimo usata per gli oggetti.
 Dove l'insieme di escursione raggiunge la sfera, è la sfera a chiuderlo, e
 l'oggetto ha sempre un interno ben definito — che serve a valle per i test
 dentro/fuori nell'occlusione. Con la media che scende la calotta è dello
@@ -169,7 +176,7 @@ più breve per raggiungerlo. Convergenza quadratica, da cui il numero piccolo
 di passi.
 
 Vicino allo **spigolo** dove la superficie del campo incontra la calotta, il
-minimo cambia componente da un passo all'altro e Newton può rimbalzare senza
+massimo cambia componente da un passo all'altro e Newton può rimbalzare senza
 atterrare: in una prima versione un punto finiva a 0.47 R dalla superficie.
 Dopo i passi di Newton si tengono quindi solo i punti atterrati, a distanza
 al primo ordine sotto `LANDED` × R. Il campionamento è già per rigetto, e lo
@@ -316,10 +323,11 @@ generatore attuale, perché la versione etichettata non è più usata.
 ### Composizione con i campi impliciti
 
 Ogni parte della scena — lo sfondo e ogni oggetto — è un campo con
-l'isolivello già sottratto, quindi solida dove è positiva. Allora:
+l'isolivello già sottratto e il segno invertito, quindi solida dove è
+negativa. Allora:
 
-- **unione**: $g_{\text{scena}}(x) = \max(g_{\text{sfondo}}(x), g_1(x), g_2(x), \dots)$;
-- **rimozione**: si toglie un termine dal massimo;
+- **unione**: $g_{\text{scena}}(x) = \min(g_{\text{sfondo}}(x), g_1(x), g_2(x), \dots)$;
+- **rimozione**: si toglie un termine dal minimo;
 - **spostamento**: si valuta il campo dell'oggetto in coordinate
   trasformate, $g(R^\top (x - t))$, con gradiente $R \nabla g$.
 

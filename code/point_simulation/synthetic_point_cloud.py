@@ -19,12 +19,13 @@ the process is Gaussian with unit variance. Every piece is a published
 construction: random Fourier features (Rahimi and Recht, 2007), the Matérn
 kernel, its spectral density and a non zero mean function (Rasmussen and
 Williams, 2006), excursion sets (Adler and Taylor, 2007) and intersection by
-minimum (Ricci, 1973).
+maximum (Ricci, 1973).
 The scene is generated two times, before and after a change with objects
 added, removed or moved.
-Every part is a field shifted, solid where positive. As a consequence a scene
-is the maximum of its parts, so an object is added or removed by adding or
-dropping  a term. The movement is given by move is a removal at one pose plus
+Every part is a field shifted and negated, solid where negative, the
+convention of signed distance functions. As a consequence a scene is the
+minimum of its parts, so an object is added or removed by adding or dropping
+a term. The movement is given by move is a removal at one pose plus
 an addition at another.
 The change is measured as the geometric difference of the two scenes, so that
 an object resting on a surface removes the surface it covers, and taking it
@@ -135,8 +136,9 @@ def generate_scene_pair(
            for k in range(n_moved) for flag in (True, False)]
     )
 
+    # The field grows outwards, so its gradient is the outward normal
     gradient = background(base)[1]
-    outward = -gradient / np.linalg.norm(gradient, axis=1, keepdims=True)
+    outward = gradient / np.linalg.norm(gradient, axis=1, keepdims=True)
 
     old_parts, new_parts, centres = [], [], []
     for shape, in_old, in_new in roles:
@@ -186,7 +188,7 @@ def _check_scene(n_points: int, radius: float, n_modes: int,
 def _component(rng: np.random.Generator, n_modes: int, length: float,
                smoothness: float, radius: float, fill: float):
     """
-    An excursion set cut to a ball, as a field solid where it is positive.
+    An excursion set cut to a ball, as a field solid where it is negative.
     """
 
     field = _random_field(rng, n_modes, length, smoothness, radius)
@@ -206,20 +208,21 @@ def _component(rng: np.random.Generator, n_modes: int, length: float,
 
     level = brentq(lambda level: inside(level) - fill, -10.0, 10.0)
 
+    # The field is negated, so that the excursion set is where it is negative
     def component(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         value, gradient = field(x)
         distance = np.linalg.norm(x, axis=1)
-        value = value + mean(distance / radius) - level
-        gradient = gradient - 2.0 * MEAN_DROP * x / radius ** 2
+        value = level - mean(distance / radius) - value
+        gradient = 2.0 * MEAN_DROP * x / radius ** 2 - gradient
 
-        # Intersection with the ball is the minimum of the two, so the solid
+        # Intersection with the ball is the maximum of the two, so the solid
         # is closed by the ball wherever the excursion set reaches it
-        wall = radius - distance
-        cut = wall < value
+        wall = distance - radius
+        cut = wall > value
         outward = x / np.maximum(distance, 1e-12)[:, None]
 
         return (np.where(cut, wall, value),
-                np.where(cut[:, None], -outward, gradient))
+                np.where(cut[:, None], outward, gradient))
 
     return component
 
@@ -322,7 +325,7 @@ def _place_object(rng: np.random.Generator, background, base: np.ndarray,
                 continue
 
             points = local @ rotation.T + centre
-            if (background(points)[0] > 0.0).mean() >= BURIED:
+            if (background(points)[0] < 0.0).mean() >= BURIED:
                 return _placed(field, rotation, centre), points, centre
 
     raise RuntimeError(
@@ -343,13 +346,13 @@ def _placed(field, rotation: np.ndarray, centre: np.ndarray):
 
 def _union(fields: list):
     """
-    Solid union of fields, which is their maximum.
+    Solid union of fields, which is their minimum.
     """
 
     def union(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         results = [field(x) for field in fields]
         values = np.stack([result[0] for result in results])
-        best = np.argmax(values, axis=0)
+        best = np.argmin(values, axis=0)
         column = np.arange(len(x))
         gradient = np.stack([result[1] for result in results])[best, column]
         return values[best, column], gradient
@@ -369,7 +372,7 @@ def _assemble(background, base: np.ndarray, parts: list) -> np.ndarray:
         outside = np.ones(len(cloud), dtype=bool)
         for other, field in enumerate(fields):
             if other != index:
-                outside &= field(cloud)[0] < 0.0
+                outside &= field(cloud)[0] > 0.0
         kept.append(cloud[outside])
 
     return np.vstack(kept)

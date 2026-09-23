@@ -36,20 +36,25 @@ pelle**.
 Un solido si descrive con una funzione $g(x)$ che a ogni punto dello spazio
 dà un numero:
 
-- $g(x) > 0$: sono **dentro**;
-- $g(x) < 0$: sono **fuori**;
-- $g(x) = 0$: sono **sulla pelle**.
+- $g(x) < 0$: sono **dentro**;
+- $g(x) = 0$: sono **sulla pelle**;
+- $g(x) > 0$: sono **fuori**.
 
-Esempio facile, una palla di raggio $R$: $g(x) = R - |x|$. Al centro vale
-$R$ (dentro), lontano è negativo (fuori), e si annulla esattamente sulla
+Esempio facile, una palla di raggio $R$: $g(x) = |x| - R$. Al centro vale
+$-R$ (dentro), lontano è positivo (fuori), e si annulla esattamente sulla
 sfera.
+
+È la convenzione delle *signed distance function*. Attenzione: la
+letteratura sugli insiemi di escursione usa il segno opposto, cioè
+l'oggetto è dove il campo **supera** un livello. Sono la stessa cosa a meno
+di un segno.
 
 Tre vantaggi:
 
 1. dire se un punto è dentro o fuori costa una valutazione;
 2. **unire** e **intersecare** solidi è banale (§5 e §10);
-3. il **gradiente** $\nabla g$ punta verso l'interno, perpendicolare alla
-   pelle, e ci dà le normali gratis.
+3. il **gradiente** $\nabla g$ punta verso l'esterno, perpendicolare alla
+   pelle: è già la normale uscente.
 
 Questa rappresentazione si chiama *superficie implicita* o *insieme di
 livello*.
@@ -60,21 +65,23 @@ $g$ è **il solido**, $f$ è **il suo ingrediente casuale**. La nebbia $f(x)$
 del §2 da sola non è un oggetto: è un numero che oscilla attorno a 0 in
 tutto lo spazio. Il campo del solido si costruisce da lei in tre mosse:
 
-$$g(x) = \underbrace{f(x)}_{\text{nebbia, §2}} + \underbrace{m(x)}_{\text{cupola, §3}} - \underbrace{u}_{\text{soglia, §4}}, \qquad g_{\text{scena}}(x) = \min\big(g(x),\, R - |x|\big) \;\; \text{(§5)}$$
+$$g(x) = \underbrace{u}_{\text{soglia, §4}} - \underbrace{m(x)}_{\text{cupola, §3}} - \underbrace{f(x)}_{\text{nebbia, §2}}, \qquad g_{\text{scena}}(x) = \max\big(g(x),\, |x| - R\big) \;\; \text{(§5)}$$
 
-così "$g > 0$" vuol dire esattamente "nebbia più cupola supera la soglia".
+così "$g < 0$" vuol dire esattamente "nebbia più cupola supera la soglia".
+Il segno meno davanti a $f$ e $m$ è tutto qui: si guarda di quanto il campo
+**manca** alla soglia, e mancare di meno di zero vuol dire superarla.
 Esempio con il valore vero di default, $u = -1.64$ (§4), e la stessa
 nebbia $f = -0.5$ in tre posti:
 
-- al centro, $m = 0$: $g = -0.5 + 0 + 1.64 = 1.14$, dentro;
-- a metà raggio, $m = -1$: $g = -0.5 - 1 + 1.64 = 0.14$, dentro di poco;
-- a tre quarti, $m = -2.25$: $g = -0.5 - 2.25 + 1.64 = -1.11$, fuori.
+- al centro, $m = 0$: $g = -1.64 - 0 + 0.5 = -1.14$, dentro;
+- a metà raggio, $m = -1$: $g = -1.64 + 1 + 0.5 = -0.14$, dentro di poco;
+- a tre quarti, $m = -2.25$: $g = -1.64 + 2.25 + 0.5 = 1.11$, fuori.
 
 La stessa nebbia è dentro al centro e fuori verso il bordo: è la cupola.
 
 Dal §6 in poi si lavora solo con $g$: guscio, Newton, distanza e unione non
 sanno che dentro ci sono onde. Nel codice è la riga di `_component`
-`value = value + mean(distance / radius) - level`, dove `value` entra come
+`value = level - mean(distance / radius) - value`, dove `value` entra come
 $f$ ed esce come $g$.
 
 ---
@@ -275,9 +282,10 @@ La seconda riga è la derivata di $-4|x|^2/R^2$, che vale $-8x/R^2$.
 
 Il campo completo è
 
-$$g(x) = f(x) + m(x) - u$$
+$$g(x) = u - m(x) - f(x)$$
 
-e l'oggetto è dove $g > 0$. Resta da scegliere il **livello** $u$. Non lo
+e l'oggetto è dove $g < 0$, cioè dove $f + m$ supera $u$. Resta da scegliere
+il **livello** $u$. Non lo
 scegliamo a mano: chiediamo "voglio che l'oggetto occupi in media il 30%
 della scena" (`fill` = 0.30) e ricaviamo $u$.
 
@@ -342,21 +350,21 @@ L'oggetto deve essere **chiuso**, cioè avere un dentro e un fuori ben
 definiti, e stare nella palla di raggio $R$. La media del §3 lo tiene quasi
 sempre dentro, ma "quasi" non basta. Allora lo si interseca con la palla:
 
-$$g_{\text{scena}}(x) = \min\big(g(x),\; R - |x|\big)$$
+$$g_{\text{scena}}(x) = \max\big(g(x),\; |x| - R\big)$$
 
-**Perché il minimo è l'intersezione (Ricci 1973).** Un punto è dentro
-entrambi i solidi se entrambi i campi sono positivi, cioè se il **più
-piccolo** dei due è positivo. Dove l'oggetto arriva al muro, è il muro
-($R - |x|$) a chiuderlo, e lì la pelle diventa un pezzo di sfera, la
+**Perché il massimo è l'intersezione (Ricci 1973).** Un punto è dentro
+entrambi i solidi se entrambi i campi sono negativi, cioè se il **più
+grande** dei due è negativo. Dove l'oggetto arriva al muro, è il muro
+($|x| - R$) a chiuderlo, e lì la pelle diventa un pezzo di sfera, la
 *calotta*.
 
-Il gradiente è quello del campo che "vince" il minimo: dove vince il muro è
-$-x/|x|$.
+Il gradiente è quello del campo che "vince" il massimo: dove vince il muro è
+$x/|x|$, cioè punta fuori.
 
 ```python
-wall = radius - distance
-cut = wall < value
-return np.where(cut, wall, value), np.where(cut[:, None], -outward, gradient)
+wall = distance - radius
+cut = wall > value
+return np.where(cut, wall, value), np.where(cut[:, None], outward, gradient)
 ```
 
 Con la media del §3 le calotte sono lo 0–3% della pelle.
@@ -435,7 +443,7 @@ Bastano `STEPS` = 4 passi per arrivare alla precisione della macchina.
 
 ### Il controllo di atterraggio
 
-Sullo **spigolo** dove la pelle del campo incontra la calotta, il minimo del
+Sullo **spigolo** dove la pelle del campo incontra la calotta, il massimo del
 §5 cambia vincitore da un passo all'altro. Newton rimbalza fra le due
 superfici e può non atterrare mai: in una prima versione un punto era finito
 a 0.47 $R$ dalla pelle. Quindi dopo Newton si tengono solo i punti con
@@ -502,7 +510,7 @@ Un oggetto vero non galleggia: poggia su qualcosa.
 1. **Scegli dove.** Un punto dello sfondo con la normale rivolta verso
    l'alto: componente verticale della normale uscente > `UPWARD` = 0.3,
    cioè una superficie su cui qualcosa potrebbe stare. La normale uscente
-   è $-\nabla g / |\nabla g|$, perché il gradiente punta dentro.
+   è $\nabla g / |\nabla g|$, perché il gradiente punta fuori.
 2. **Gira a caso.** Una rotazione casuale dalla fattorizzazione QR di una
    matrice gaussiana 3×3; se il determinante esce −1, cioè uno specchio, si
    cambia segno.
@@ -533,14 +541,14 @@ pose varie va bene, ma non è una distribuzione uniforme sulle rotazioni.
 
 ---
 
-## 11. Comporre la scena: unione come massimo
+## 11. Comporre la scena: unione come minimo
 
-$$g_{\text{scena}}(x) = \max\big(g_{\text{sfondo}}(x),\; g_1(x),\; g_2(x), \dots\big)$$
+$$g_{\text{scena}}(x) = \min\big(g_{\text{sfondo}}(x),\; g_1(x),\; g_2(x), \dots\big)$$
 
 È il duale del §5: un punto è dentro l'unione se è dentro **almeno uno**,
-cioè se il **più grande** dei campi è positivo (Ricci 1973).
+cioè se il **più piccolo** dei campi è negativo (Ricci 1973).
 
-- **Aggiungere** un oggetto: un termine in più nel massimo.
+- **Aggiungere** un oggetto: un termine in più nel minimo.
 - **Toglierlo**: un termine in meno.
 - **Spostarlo**: toglierlo da una posa e aggiungerlo in un'altra, con la
   **stessa forma**. Si perde l'informazione che è lo stesso oggetto. Per
@@ -601,7 +609,7 @@ non risulta cambiata.
 seed ──► onde casuali (Matérn, §2)
           + cupola (media, §3)
           − livello u da fill (§4)
-          ∩ sfera (min, §5)                        = campo dello sfondo g
+          ∩ sfera (max, §5)                        = campo dello sfondo g
           │
           ├─► tira nella palla, tieni il guscio (§6)
           │   Newton sulla pelle, controlla atterraggio (§7)
@@ -610,8 +618,8 @@ seed ──► onde casuali (Matérn, §2)
 change_seed ─► per ogni oggetto: stessa ricetta in piccolo (§9)
                appoggia su superficie in su (§10)
           │
-          ├─► old = max(sfondo, rimossi, spostati prima)   (§11)
-          ├─► new = max(sfondo, aggiunti, spostati dopo)
+          ├─► old = min(sfondo, rimossi, spostati prima)   (§11)
+          ├─► new = min(sfondo, aggiunti, spostati dopo)
           │
           └─► added / removed = distanza dall'altra pelle > s/2   (§12)
 ```
@@ -938,7 +946,7 @@ teorica entro 0.014 (§2), mentre `fill` risulta 0.318 invece di 0.30.
 | Somma di coseni con frequenze casuali, varianza unitaria (§2) | A. Rahimi, B. Recht, *Random Features for Large-Scale Kernel Machines*, NeurIPS 2007 |
 | Kernel Matérn, densità spettrale, teorema di Bochner, funzione media (§2–§3) | C. E. Rasmussen, C. K. I. Williams, *Gaussian Processes for Machine Learning*, MIT Press 2006, §2.7 e §4.2 |
 | Insieme di escursione e soglia (§4) | R. J. Adler, J. E. Taylor, *Random Fields and Geometry*, Springer 2007 |
-| Intersezione come minimo, unione come massimo (§5, §11) | A. Ricci, *A Constructive Geometry for Computer Graphics*, The Computer Journal 1973 |
+| Intersezione come massimo, unione come minimo (§5, §11) | A. Ricci, *A Constructive Geometry for Computer Graphics*, The Computer Journal 1973 |
 | Distanza al primo ordine $\lvert g\rvert/\lvert\nabla g\rvert$ (§6, §12) | G. Taubin, *Estimation of Planar Curves, Surfaces, and Nonplanar Space Curves Defined by Implicit Equations*, IEEE TPAMI 1991 |
 | Proiezione di Newton sulla superficie implicita (§7) | A. Witkin, P. Heckbert, *Using Particles to Sample and Control Implicit Surfaces*, SIGGRAPH 1994 |
 | Matérn raccomandato per i dati spaziali, critica del kernel gaussiano (§16) | M. L. Stein, *Interpolation of Spatial Data: Some Theory for Kriging*, Springer 1999 |
