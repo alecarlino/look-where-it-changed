@@ -14,7 +14,7 @@
 \usepackage{tikz} % For tikz graphics
 \usepackage{circuitikz} % For circuitikz
 \usepackage{amssymb} % For mathcal
-\usepackage[texMathDollars, rawAttribute, contentBlocks]{markdown} % For markdown with latex equations
+\usepackage[texMathDollars, rawAttribute]{markdown} % For markdown with latex equations
 \usepackage{lmodern}
 
 
@@ -43,6 +43,13 @@
 \title{Look Where It Changed: Robotic Next-Best-View Planning for Updating Gaussian Splatting}
 \author{Alessandro Carlino}
 \date{\today}
+
+% Markdown setup
+\markdownSetup{
+  renderers = {
+    displayMath = {\begin{equation}#1\end{equation}},
+  },
+}
 
 \begin{document}
 
