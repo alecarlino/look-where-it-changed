@@ -14,9 +14,7 @@
 \usepackage{tikz} % For tikz graphics
 \usepackage{circuitikz} % For circuitikz
 \usepackage{amssymb} % For mathcal
-\usepackage[texMathDollars, rawAttribute]{markdown} % For markdown with latex equations
-\usepackage{lmodern}
-
+\usepackage{lmodern} % For Latin Model font
 
 % Define custom colours
 \definecolor{raspberry}{RGB}{213,62,79}
@@ -44,26 +42,15 @@
 \author{Alessandro Carlino}
 \date{\today}
 
-% Markdown setup
-\markdownSetup{
-  renderers = {
-    displayMath = {\begin{equation}#1\end{equation}},
-  },
-}
-
 \begin{document}
 
 \setlength{\droptitle}{-4cm}
 \maketitle
 
-\markdownInput{source/simulation.md}
-
-%\input{sections/introduction.tex}
-
+% Import tex files
+\input{source/point_simulation.tex}
 %\input{sections/problem_formulation.tex}
-
 %\input{sections/background.tex}
-
 %\input{sections/related_work.tex}
 
 \end{document}
