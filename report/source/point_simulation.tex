@@ -20,19 +20,19 @@ This representation simplifies the evaluation of point positions respect to the 
 
 where:
 \begin{itemize}
-    \item $u$ is the level that fixes the size of the solid;
-    \item $f(x,y,z)$ is a random field;
-    \item $m(x,y,z)$ is a mean function decreasing towards the borders of the scene.
-    
+  \item $u$ is the level that fixes the size of the solid;
+  \item $f(x,y,z)$ is a random field;
+  \item $m(x,y,z)$ is a mean function decreasing towards the borders of the scene.
 \end{itemize}
 
+\subsubsection{Random Field}
 The synthetic scene is used to challenge the planning algorithm; this requires the random field $f(x,y,z)$ used to build the surface to satisfy five properties:
 \begin{enumerate}
-    \item Genuine variety of achievable shapes. Concavities, cavities and all the separate components have to be generated randomly to test the planner in the most neutral conditions possible.
-    \item Tunable difficulty of the test using interpretable parameters. It should be possible to control the size of the folds to change the level of self-occlusion in the scene and on the surface roughness to influence the reliability of the visibility filter.
-    \item Absence of privileged positions and directions. The result should not be determined by the reference frame, unless explicitly imposed.  
-    \item True function, valuable together with with its gradient in any point. The visibility ground truth, the sampled points projection onto the surface, and the measurement of the changed area all query the field at arbitrary points, and all of them have to see exactly the same surface.
-    \item Known distribution of values. The expected size of any object in the scene should be fixed by solving an equation rather than manual tuning.
+  \item Genuine variety of achievable shapes. Concavities, cavities and all the separate components have to be generated randomly to test the planner in the most neutral conditions possible.
+  \item Tunable difficulty of the test using interpretable parameters. It should be possible to control the size of the folds to change the level of self-occlusion in the scene and on the surface roughness to influence the reliability of the visibility filter.
+  \item Absence of privileged positions and directions. The result should not be determined by the reference frame, unless explicitly imposed.
+  \item True function, valuable together with with its gradient in any point. The visibility ground truth, the sampled points projection onto the surface, and the measurement of the changed area all query the field at arbitrary points, and all of them have to see exactly the same surface.
+  \item Known distribution of values. The expected size of any object in the scene should be fixed by solving an equation rather than manual tuning.
 \end{enumerate}
 
-A mathematical object that satisfy all these request is a gaussian process
+It is possible to satisfy all these requests defining a guassian process, where in every $i$-th point $f(x_i, y_i, z_i)$ is a guassian and its similarity to $f(x_j, y_j, z_j)$ with $i \neq j$ depends exclusively on the distance between $(x_i, y_i, z_i)$ and $(x_j, y_j, z_j)$ via a kernel function.
