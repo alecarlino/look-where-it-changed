@@ -11,18 +11,19 @@ The solid is defined implicitly by a scalar field $g(x,y,z)$, which associates a
   \item $g(x,y,z)>0$ point lies outside the solid volume.
 \end{itemize}
 
-This representation simplifies the evaluation of point positions respect to the volume and the computation of boolean operations. The union of two solids is the minimum of their fields and their intersection is the maximum\cite{ricciConstructiveGeometryComputer1973}. A procedural level surface $g(x,y,z)=0$ can be defined as:
+This representation simplifies the evaluation of point positions respect to the volume and the computation of boolean operations. The union of two solids is the minimum of their fields and their intersection is the maximum \cite{ricciConstructiveGeometryComputer1973}. A procedural level surface $g(x,y,z)=0$ can be defined as:
 
 \begin{equation}
-  g(x,y,z) = f(x,y,z) + m(x,y,z) - u,
+  g(x,y,z) = u - f(x,y,z) - m(x,y,z),
   \label{eq:level_surface}
 \end{equation}
 
-where;
+where:
 \begin{itemize}
+    \item $u$ is the level that fixes the size of the solid;
     \item $f(x,y,z)$ is a random field;
-    \item $m(x,y,z)$ is a mean function decreasing towards the borders of the scene;
-    \item $u$ is the level fixing the size of the solid.
+    \item $m(x,y,z)$ is a mean function decreasing towards the borders of the scene.
+    
 \end{itemize}
 
 The synthetic scene is used to challenge the planning algorithm; this requires the random field $f(x,y,z)$ used to build the surface to satisfy five properties:
@@ -33,3 +34,5 @@ The synthetic scene is used to challenge the planning algorithm; this requires t
     \item True function, valuable together with with its gradient in any point. The visibility ground truth, the sampled points projection onto the surface, and the measurement of the changed area all query the field at arbitrary points, and all of them have to see exactly the same surface.
     \item Known distribution of values. The expected size of any object in the scene should be fixed by solving an equation rather than manual tuning.
 \end{enumerate}
+
+A mathematical object that satisfy all these request is a gaussian process
