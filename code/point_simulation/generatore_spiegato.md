@@ -780,8 +780,17 @@ l'altra ne decide la pendenza. È esattamente **R2**.
 |---|---|---|
 | Gaussiano (*squared exponential*) | scende come $e^{-\ell^2\lvert\omega\rvert^2/2}$, più veloce di ogni potenza | **R2**: un parametro solo, nessuna rugosità. Liscio in modo irrealistico: Stein (1999) lo sconsiglia proprio per questo per i dati spaziali |
 | Esponenziale | legge di potenza con $\nu = 1/2$ | rugoso a ogni scala: vedi 16.6 |
-| Rational quadratic | miscela di gaussiani a scale diverse | il secondo parametro mescola scale invece di controllare la rugosità; meno standard per i dati spaziali |
+| Rational quadratic | miscela di gaussiani a scale diverse | il secondo parametro mescola scale invece di controllare la rugosità, e i cammini restano infinitamente lisci |
+| $\gamma$-esponenziale, classe di Cauchy | potenza | **hanno** una manopola di rugosità, ma non danno cammini derivabili nell'intervallo che serve qui: vedi 16.6 |
 | **Matérn** | piatto, poi potenza | due manopole separate; **contiene gli altri come casi limite** (esponenziale a $\nu = 1/2$, gaussiano per $\nu \to \infty$); è il kernel raccomandato per la statistica spaziale (Stein 1999; Rasmussen e Williams §4.2) |
+
+**Attenzione a non esagerare la tesi.** Il Matérn non è l'unica famiglia
+con un parametro di rugosità: il $\gamma$-esponenziale (Rasmussen e
+Williams §4.2) e la classe di Cauchy (Gneiting e Schlather) ne hanno uno.
+È la **scelta standard** quando la regolarità conta, perché il suo $\nu$
+controlla la derivabilità in media quadratica in modo esatto, ed è quella
+raccomandata rispetto al kernel gaussiano proprio per questo. La versione
+difendibile dell'argomento è questa, non l'unicità.
 
 La coda a legge di potenza ha anche un argomento di realismo: le superfici
 reali hanno tipicamente spettri di rugosità a legge di potenza su un ampio
@@ -930,7 +939,7 @@ teorica entro 0.014 (§2), mentre `fill` risulta 0.318 invece di 0.30.
 > escursione di un campo casuale. Il campo è gaussiano, perché è la scelta a
 > massima entropia una volta fissate media e covarianza e perché rende
 > analitica la dimensione dell'oggetto; stazionario e isotropo, per non
-> favorire alcun punto o direzione. La covarianza è Matérn, l'unica famiglia
+> favorire alcun punto o direzione. La covarianza è Matérn, la famiglia
 > standard che separa la scala delle pieghe dalla loro rugosità, con
 > $\nu = 5/2$, il più piccolo valore in forma chiusa per cui la curvatura
 > della superficie è definita. Il campo è campionato con random Fourier
@@ -950,6 +959,7 @@ teorica entro 0.014 (§2), mentre `fill` risulta 0.318 invece di 0.30.
 | Distanza al primo ordine $\lvert g\rvert/\lvert\nabla g\rvert$ (§6, §12) | G. Taubin, *Estimation of Planar Curves, Surfaces, and Nonplanar Space Curves Defined by Implicit Equations*, IEEE TPAMI 1991 |
 | Proiezione di Newton sulla superficie implicita (§7) | A. Witkin, P. Heckbert, *Using Particles to Sample and Control Implicit Surfaces*, SIGGRAPH 1994 |
 | Matérn raccomandato per i dati spaziali, critica del kernel gaussiano (§16) | M. L. Stein, *Interpolation of Spatial Data: Some Theory for Kriging*, Springer 1999 |
+| Famiglia di covarianze che separa dimensione frattale e dipendenza a lungo raggio (§16) | T. Gneiting, M. Schlather, *Stochastic Models That Separate Fractal Dimension and the Hurst Effect*, SIAM Review 2004 |
 | Gaussiana a massima entropia (§16) | T. M. Cover, J. A. Thomas, *Elements of Information Theory*, 2ª ed., Wiley 2006, cap. 12 |
 | Rumore di Perlin, alternativa scartata (§16) | K. Perlin, *An Image Synthesizer*, SIGGRAPH 1985 |
 | Metaball, alternativa scartata (§16) | J. F. Blinn, *A Generalization of Algebraic Surface Drawing*, ACM TOG 1982 |
