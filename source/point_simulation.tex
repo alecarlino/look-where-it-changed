@@ -4,35 +4,43 @@ To conduct a preliminary study and test the camera pose optimization and plannin
 \subsection{Synthetic Point Cloud}
 A real depth sensor (RGB-D) or a structure from motion (SfM) outputs only the reconstruction of the scene's surfaces; it cannot provide the points contained inside the volume of the present objects. This has direct consequences for reconstruction properties, such as occlusions, incident angles, and the boundaries of known and unknown zones. To simulate this, it is necessary to first generate the surface of a random solid volume and then sample its points.
 
-The solid is defined implicitly by a scalar field $g(x,y,z)$, which associates a number with each point in 3D space:
+The solid is defined implicitly by a scalar field $g(x,y,z)$, which associates a number with each point in 3D space as follows:
 \begin{itemize}
   \item $g(x,y,z)<0$ point lies inside the solid volume;
   \item $g(x,y,z)=0$ point lies on the surface of the volume;
   \item $g(x,y,z)>0$ point lies outside the solid volume.
 \end{itemize}
 
-This representation simplifies the evaluation of point positions respect to the volume and the computation of boolean operations. The union of two solids is the minimum of their fields and their intersection is the maximum \cite{ricciConstructiveGeometryComputer1973}. A procedural level surface $g(x,y,z)=0$ can be defined as:
-
+This representation simplifies the evaluation of point positions with respect to the volume and the computation of boolean operations. The union of two solids is the minimum of their fields, and their intersection is the maximum~\cite{ricciConstructiveGeometryComputer1973}. A procedural level surface $g(x,y,z)=0$ can be defined as:
 \begin{equation}
   g(x,y,z) = u - f(x,y,z) - m(x,y,z),
   \label{eq:level_surface}
 \end{equation}
-
 where:
 \begin{itemize}
-    \item $u$ is the level that fixes the size of the solid;
-    \item $f(x,y,z)$ is a random field;
-    \item $m(x,y,z)$ is a mean function decreasing towards the borders of the scene.
-    
+  \item $u$ is the level that determines the size of the solid;
+  \item $f(x,y,z)$ is a random field;
+  \item $m(x,y,z)$ is a mean function that decreases towards the edges of the scene.
 \end{itemize}
 
+\subsubsection{Random Field}
 The synthetic scene is used to challenge the planning algorithm; this requires the random field $f(x,y,z)$ used to build the surface to satisfy five properties:
 \begin{enumerate}
-    \item Genuine variety of achievable shapes. Concavities, cavities and all the separate components have to be generated randomly to test the planner in the most neutral conditions possible.
-    \item Tunable difficulty of the test using interpretable parameters. It should be possible to control the size of the folds to change the level of self-occlusion in the scene and on the surface roughness to influence the reliability of the visibility filter.
-    \item Absence of privileged positions and directions. The result should not be determined by the reference frame, unless explicitly imposed.  
-    \item True function, valuable together with with its gradient in any point. The visibility ground truth, the sampled points projection onto the surface, and the measurement of the changed area all query the field at arbitrary points, and all of them have to see exactly the same surface.
-    \item Known distribution of values. The expected size of any object in the scene should be fixed by solving an equation rather than manual tuning.
+  \item A genuine variety of achievable shapes. Concavities, cavities, and all the separate components have to be generated randomly to test the planner in the most neutral conditions possible.
+  \item \label{knob}The difficulty of the test can be tuned using interpretable parameters. It should be possible to control the size of the folds to change the level of self-occlusion in the scene and the surface roughness to influence the reliability of the visibility filter.
+  \item Absence of privileged positions and directions. The result should not be determined by the reference frame unless explicitly imposed.
+  \item The true function is valuable along with its gradient in any point. The visibility ground truth, the sampled points projection onto the surface, and the measurement of the changed area all query the field at arbitrary points, and all of them must see exactly the same surface.
+  \item Known distribution of values. The expected size of any object in the scene should be fixed by solving an equation rather than through manual tuning.
 \end{enumerate}
 
-A mathematical object that satisfy all these request is a gaussian process
+It is possible to satisfy all these requests by defining a Gaussian process, where in every $i$-th point $f(x_i, y_i, z_i)$ is a Gaussian, and its similarity to $f(x_j, y_j, z_j)$ with $i \neq j$ depends exclusively on $r$, the distance between $(x_i, y_i, z_i)$ and $(x_j, y_j, z_j)$, via a kernel function:
+\begin{equation}
+    Cov(f(x_i, y_i, z_i), f(x_j, y_j, z_j))=k(r).
+\end{equation}
+
+To satisfy the required property~\ref{knob}, a Matérn class of covariance function is chosen as the kernel. A first positive parameter $\nu$ determines its mean-square differentiability, allowing the regularity of the field to be controlled, while a second one $l$ defines its characteristic length-scale. This is described by:
+\begin{equation}
+    k(r)=\frac{2^{1-\nu}}{\Gamma(\nu)}\big(\frac{\sqrt{2\nu}r}{l}\big)^\nu K_\nu \big(\frac{\sqrt{2\nu}r}{l}\big).
+\end{equation}
+
+\subsubsection{Mean Function}
